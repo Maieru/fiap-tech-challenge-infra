@@ -1,0 +1,101 @@
+name: Destroy Kubernetes Infrastructure
+
+on:
+  workflow_call:
+    secrets:
+      INFRA_ACTION_ROLE:
+        required: true
+      REPOSITORIES_TOKEN:
+        required: false
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: infrastructure-production
+  cancel-in-progress: false
+
+jobs:
+  destroy_api_gateway:
+    name: Destroy API Gateway
+    uses: ./.github/workflows/terraform-stage.yml
+    with:
+      stage: api-gateway
+      operation: destroy
+    secrets:
+      INFRA_ACTION_ROLE: ${{ secrets.INFRA_ACTION_ROLE }}
+      REPOSITORIES_TOKEN: ${{ secrets.REPOSITORIES_TOKEN }}
+
+  check_eks:
+    name: Check EKS
+    runs-on: ubuntu-latest
+    outputs:
+      exists: ${{ steps.eks.outputs.exists }}
+    steps:
+      - name: Configurar credenciais AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          role-to-assume: ${{ secrets.INFRA_ACTION_ROLE }}
+
+      - name: Verificar existência do EKS
+        id: eks
+        shell: bash
+        run: |
+          exists=$(aws eks list-clusters \
+            --query "contains(clusters, 'fiap-eks-cluster')" \
+            --output text)
+          echo "exists=${exists,,}" >> "$GITHUB_OUTPUT"
+
+  cleanup_application_ingresses:
+    name: Delete Application Ingresses
+    needs:
+      - check_eks
+      - destroy_api_gateway
+    if: ${{ needs.check_eks.outputs.exists == 'true' && needs.destroy_api_gateway.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configurar credenciais AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          role-to-assume: ${{ secrets.INFRA_ACTION_ROLE }}
+
+      - name: Configurar acesso ao EKS
+        run: aws eks update-kubeconfig --name fiap-eks-cluster --region us-east-1
+
+      - name: Excluir Ingresses e aguardar remoção do ALB
+        run: |
+          kubectl delete ingress fiap-backend-ingress -n fiap-backend --ignore-not-found --wait=true --timeout=10m
+          kubectl delete ingress fiap-frontend-ingress -n fiap-frontend --ignore-not-found --wait=true --timeout=10m
+
+
+  destroy_kubernetes_configs:
+    name: Destroy Kubernetes Configs
+    needs:
+      - check_eks
+      - cleanup_application_ingresses
+    if: ${{ needs.check_eks.outputs.exists == 'true' && needs.cleanup_application_ingresses.result == 'success' }}
+    uses: ./.github/workflows/terraform-stage.yml
+    with:
+      stage: kubernetes-configs
+      operation: destroy
+    secrets:
+      INFRA_ACTION_ROLE: ${{ secrets.INFRA_ACTION_ROLE }}
+      REPOSITORIES_TOKEN: ${{ secrets.REPOSITORIES_TOKEN }}
+
+  destroy_kubernetes_addons:
+    name: Destroy Kubernetes Add-ons
+    needs:
+      - check_eks
+      - destroy_kubernetes_configs
+    if: ${{ always() && needs.check_eks.result == 'success' && needs.check_eks.outputs.exists == 'true' && needs.destroy_kubernetes_configs.result == 'success' }}
+    uses: ./.github/workflows/terraform-stage.yml
+    with:
+      stage: kubernetes-addons
+      operation: destroy
+    secrets:
+      INFRA_ACTION_ROLE: ${{ secrets.INFRA_ACTION_ROLE }}
+      REPOSITORIES_TOKEN: ${{ secrets.REPOSITORIES_TOKEN }}
