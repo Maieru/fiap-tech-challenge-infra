@@ -24,7 +24,7 @@ resource "aws_iam_role" "github_actions_infra" {
             "token.actions.githubusercontent.com:sub" = flatten([
               for repository in each.value.repositories : [
                 "repo:${var.github_owner}/${repository}:ref:refs/heads/${var.github_branch}",
-                "repo:${var.github_owner}/${repository}:environment:production"
+                "repo:${var.github_owner}@*/${repository}@*:ref:refs/heads/${var.github_branch}"
               ]
             ])
           }

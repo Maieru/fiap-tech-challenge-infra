@@ -17,11 +17,6 @@ on:
         required: false
         type: boolean
         default: true
-      require_approval:
-        description: Exige aprovação do environment production antes do apply
-        required: false
-        type: boolean
-        default: true
     secrets:
       INFRA_ACTION_ROLE:
         required: true
@@ -98,11 +93,8 @@ jobs:
 
   terraform-apply:
     name: Apply
-    if: inputs.require_approval
     runs-on: ubuntu-latest
     needs: terraform-plan
-    environment:
-      name: production
     defaults:
       run:
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -129,45 +121,6 @@ jobs:
         run: terraform init -input=false
 
       - name: Baixar plano aprovado
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-plan-${{ inputs.stage }}
-          path: ${{ env.TF_WORKING_DIR }}
-
-      - name: Terraform Apply
-        run: terraform apply -input=false -no-color -auto-approve tfplan
-
-  terraform-apply-unattended:
-    name: Apply (unattended)
-    if: ${{ !inputs.require_approval }}
-    runs-on: ubuntu-latest
-    needs: terraform-plan
-    defaults:
-      run:
-        working-directory: ${{ env.TF_WORKING_DIR }}
-
-    steps:
-      - name: Checkout da infraestrutura
-        uses: actions/checkout@v4
-        with:
-          repository: Maieru/fiap-tech-challenge-infra
-          token: ${{ secrets.REPOSITORIES_TOKEN || github.token }}
-
-      - name: Configurar credenciais AWS via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ secrets.INFRA_ACTION_ROLE }}
-
-      - name: Configurar Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TERRAFORM_VERSION }}
-
-      - name: Terraform Init
-        run: terraform init -input=false
-
-      - name: Baixar plano
         uses: actions/download-artifact@v4
         with:
           name: terraform-plan-${{ inputs.stage }}
