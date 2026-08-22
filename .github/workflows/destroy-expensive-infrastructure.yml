@@ -49,7 +49,6 @@ jobs:
     with:
       stage: kubernetes-configs
       operation: destroy
-      require_approval: false
     secrets:
       INFRA_ACTION_ROLE: ${{ secrets.INFRA_ACTION_ROLE }}
       REPOSITORIES_TOKEN: ${{ secrets.REPOSITORIES_TOKEN }}
@@ -64,7 +63,6 @@ jobs:
     with:
       stage: kubernetes-addons
       operation: destroy
-      require_approval: false
     secrets:
       INFRA_ACTION_ROLE: ${{ secrets.INFRA_ACTION_ROLE }}
       REPOSITORIES_TOKEN: ${{ secrets.REPOSITORIES_TOKEN }}
@@ -80,7 +78,6 @@ jobs:
       stage: aws-resources
       operation: apply
       create_eks_instance: false
-      require_approval: false
     secrets:
       INFRA_ACTION_ROLE: ${{ secrets.INFRA_ACTION_ROLE }}
       jwt_signing_key: ${{ secrets.jwt_signing_key }}
