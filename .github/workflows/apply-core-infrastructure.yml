@@ -1,0 +1,41 @@
+name: Apply Core Infrastructure
+
+on:
+  workflow_call:
+    secrets:
+      INFRA_ACTION_ROLE:
+        required: true
+      jwt_signing_key:
+        required: true
+      REPOSITORIES_TOKEN:
+        required: false
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: infrastructure-production
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Bootstrap
+    uses: ./.github/workflows/terraform-stage.yml
+    with:
+      stage: bootstrap
+    secrets:
+      INFRA_ACTION_ROLE: ${{ secrets.INFRA_ACTION_ROLE }}
+      REPOSITORIES_TOKEN: ${{ secrets.REPOSITORIES_TOKEN }}
+
+  aws-resources:
+    name: AWS Resources
+    needs: bootstrap
+    uses: ./.github/workflows/terraform-stage.yml
+    with:
+      stage: aws-resources
+    secrets:
+      INFRA_ACTION_ROLE: ${{ secrets.INFRA_ACTION_ROLE }}
+      jwt_signing_key: ${{ secrets.jwt_signing_key }}
+      REPOSITORIES_TOKEN: ${{ secrets.REPOSITORIES_TOKEN }}

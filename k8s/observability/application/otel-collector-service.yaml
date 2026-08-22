@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: fiap-observability
+spec:
+  selector:
+    app: otel-collector
+  ports:
+    - { name: otlp-grpc, port: 4317, targetPort: otlp-grpc }
+    - { name: otlp-http, port: 4318, targetPort: otlp-http }
+    - { name: health, port: 13133, targetPort: health }
