@@ -1,11 +1,9 @@
-name: Destroy Expensive Infrastructure
+name: Destroy Kubernetes Infrastructure
 
 on:
   workflow_call:
     secrets:
       INFRA_ACTION_ROLE:
-        required: true
-      jwt_signing_key:
         required: true
       REPOSITORIES_TOKEN:
         required: false
@@ -41,16 +39,28 @@ jobs:
             --output text)
           echo "exists=${exists,,}" >> "$GITHUB_OUTPUT"
 
-  disable_eks:
-    name: Disable EKS
+  destroy_kubernetes_configs:
+    name: Destroy Kubernetes Configs
     needs: check_eks
     if: needs.check_eks.outputs.exists == 'true'
     uses: ./.github/workflows/terraform-stage.yml
     with:
-      stage: aws-resources
-      operation: apply
-      create_eks_instance: false
+      stage: kubernetes-configs
+      operation: destroy
     secrets:
       INFRA_ACTION_ROLE: ${{ secrets.INFRA_ACTION_ROLE }}
-      jwt_signing_key: ${{ secrets.jwt_signing_key }}
+      REPOSITORIES_TOKEN: ${{ secrets.REPOSITORIES_TOKEN }}
+
+  destroy_kubernetes_addons:
+    name: Destroy Kubernetes Add-ons
+    needs:
+      - check_eks
+      - destroy_kubernetes_configs
+    if: ${{ always() && needs.check_eks.result == 'success' && needs.check_eks.outputs.exists == 'true' && needs.destroy_kubernetes_configs.result == 'success' }}
+    uses: ./.github/workflows/terraform-stage.yml
+    with:
+      stage: kubernetes-addons
+      operation: destroy
+    secrets:
+      INFRA_ACTION_ROLE: ${{ secrets.INFRA_ACTION_ROLE }}
       REPOSITORIES_TOKEN: ${{ secrets.REPOSITORIES_TOKEN }}
