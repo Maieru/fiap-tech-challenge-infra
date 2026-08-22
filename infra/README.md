@@ -95,10 +95,11 @@ Este repositório é responsável por executar seus próprios estados Terraform:
 | --- | --- |
 | `apply-core-infrastructure.yml` | Aplica `bootstrap` e `aws-resources`. |
 | `apply-kubernetes-infrastructure.yml` | Aplica `kubernetes-addons` e `kubernetes-configs`, depois que o banco existe. |
-| `destroy-expensive-infrastructure.yml` | Destrói as configurações e add-ons do Kubernetes e desabilita o EKS. |
-| `terraform-stage.yml` | Implementação reutilizável de plan, aprovação e apply. |
+| `destroy-kubernetes-infrastructure.yml` | Destrói `kubernetes-configs` e depois `kubernetes-addons`, mantendo o EKS disponível para a remoção do banco. |
+| `destroy-expensive-infrastructure.yml` | Desabilita o EKS depois que o banco foi destruído. |
+| `terraform-stage.yml` | Implementação reutilizável de plan e apply. |
 
-Todos podem ser chamados pelo orquestrador do repositório da aplicação; os três workflows de alto nível também podem ser iniciados manualmente neste repositório. Configure `INFRA_ACTION_ROLE` e `jwt_signing_key` nos repositórios que iniciarem os fluxos. O ARN da role é o output `github_actions_infra_role_arn["k8s_infra"]` do bootstrap.
+Todos podem ser chamados pelo orquestrador do repositório da aplicação; os quatro workflows de alto nível também podem ser iniciados manualmente neste repositório. Configure `INFRA_ACTION_ROLE` e `jwt_signing_key` nos repositórios que iniciarem os fluxos. O ARN da role é o output `github_actions_infra_role_arn["k8s_infra"]` do bootstrap.
 
 Para repositórios privados, configure também `REPOSITORIES_TOKEN` com acesso de leitura. As configurações do GitHub Actions devem permitir que os workflows reutilizáveis sejam acessados pelos outros repositórios do projeto.
 
