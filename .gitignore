@@ -600,4 +600,5 @@ terraform.rc
 /infra/.terraform/providers/registry.terraform.io/hashicorp/aws/6.51.0/windows_386/LICENSE.txt
 /infra/.terraform/modules/modules.json
 /infra/.terraform/providers/registry.terraform.io/hashicorp
-.terraform.lock.hcl
+# O lockfile dos providers deve ser versionado para builds reproduzíveis.
+!.terraform.lock.hcl
