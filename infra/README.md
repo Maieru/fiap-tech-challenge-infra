@@ -113,7 +113,7 @@ Este repositório é responsável por executar seus próprios estados Terraform:
 | `apply-core-infrastructure.yml` | Aplica `bootstrap` e `aws-resources`. |
 | `apply-kubernetes-infrastructure.yml` | Aplica `kubernetes-addons` e `kubernetes-configs`, depois que o banco existe. |
 | `apply-edge-infrastructure.yml` | Aplica `api-gateway` depois que o deploy criar o ALB interno. |
-| `destroy-kubernetes-infrastructure.yml` | Destrói Api Gateway, `kubernetes-configs` e depois `kubernetes-addons`, mantendo o EKS disponível para a remoção do banco. |
+| `destroy-kubernetes-infrastructure.yml` | Destrói API Gateway, Ingresses/ALB, `kubernetes-configs` e `kubernetes-addons`, mantendo o EKS disponível para a remoção do banco. |
 | `destroy-expensive-infrastructure.yml` | Desabilita o EKS depois que os recursos Kubernetes e o banco de dados forem removidos pelo orquestrador. |
 | `terraform-stage.yml` | Implementação reutilizável de plan, aprovação e apply. |
 
