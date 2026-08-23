@@ -1,0 +1,28 @@
+name: Apply Edge Infrastructure
+
+on:
+  workflow_call:
+    secrets:
+      INFRA_ACTION_ROLE:
+        required: true
+      REPOSITORIES_TOKEN:
+        required: false
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: infrastructure-production
+  cancel-in-progress: false
+
+jobs:
+  api-gateway:
+    name: API Gateway
+    uses: ./.github/workflows/terraform-stage.yml
+    with:
+      stage: api-gateway
+    secrets:
+      INFRA_ACTION_ROLE: ${{ secrets.INFRA_ACTION_ROLE }}
+      REPOSITORIES_TOKEN: ${{ secrets.REPOSITORIES_TOKEN }}

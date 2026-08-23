@@ -72,6 +72,22 @@ resource "aws_iam_policy" "github_actions_infra_policy" {
         Resource = "*"
       },
       {
+        Sid    = "ElasticLoadBalancingAccess"
+        Effect = "Allow"
+        Action = [
+          "elasticloadbalancing:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "ApiGatewayAccess"
+        Effect = "Allow"
+        Action = [
+          "apigateway:*"
+        ]
+        Resource = "*"
+      },
+      {
         Sid    = "EksAccess"
         Effect = "Allow"
         Action = [

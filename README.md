@@ -1,6 +1,6 @@
 # FIAP Tech Challenge — Infrastructure
 
-Infraestrutura compartilhada do projeto na AWS, provisionada com Terraform e Kubernetes.
+Infraestrutura compartilhada do projeto na AWS, provisionada com Terraform e Kubernetes. Inclui API Gateway, VPC Link e o AWS Load Balancer Controller usado para publicar frontend e backend por um ALB interno compartilhado.
 
 Consulte o [guia de infraestrutura](infra/README.md) para conhecer os estados, dependências e comandos de execução.
 
