@@ -15,7 +15,11 @@ output "backend_secret_arn" {
 
 output "vpc" {
   value = {
-    id                         = module.vpc.vpc_id
-    database_subnet_group_name = module.vpc.database_subnet_group_name
+    id                                  = module.vpc.vpc_id
+    cidr_block                          = module.vpc.vpc_cidr_block
+    application_private_subnet_ids      = module.vpc.private_subnets
+    api_gateway_vpc_link_security_group = aws_security_group.api_gateway_vpc_link.id
+    internal_alb_security_group         = aws_security_group.internal_alb.id
+    database_subnet_group_name          = module.vpc.database_subnet_group_name
   }
 }
