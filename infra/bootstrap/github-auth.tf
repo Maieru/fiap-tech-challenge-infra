@@ -85,3 +85,24 @@ resource "aws_iam_role_policy_attachment" "github_actions_attach" {
   role       = each.value.name
   policy_arn = aws_iam_policy.github_actions_deploy_policy.arn
 }
+
+resource "aws_iam_role_policy" "serverless_code_deploy" {
+  name = "fiap-policy-serverless-code-deploy"
+  role = aws_iam_role.github_actions["auth"].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "DeployAuthorizerCode"
+        Effect = "Allow"
+        Action = [
+          "lambda:GetFunction",
+          "lambda:GetFunctionConfiguration",
+          "lambda:UpdateFunctionCode"
+        ]
+        Resource = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:fiap-ordem-servico-authorizer"
+      }
+    ]
+  })
+}

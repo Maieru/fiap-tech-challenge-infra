@@ -18,8 +18,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  destroy_serverless_infrastructure:
+    name: Destroy Serverless Infrastructure
+    uses: ./.github/workflows/terraform-stage.yml
+    with:
+      stage: serverless
+      operation: destroy
+    secrets:
+      INFRA_ACTION_ROLE: ${{ secrets.INFRA_ACTION_ROLE }}
+      REPOSITORIES_TOKEN: ${{ secrets.REPOSITORIES_TOKEN }}
+
   destroy_api_gateway:
     name: Destroy API Gateway
+    needs: destroy_serverless_infrastructure
     uses: ./.github/workflows/terraform-stage.yml
     with:
       stage: api-gateway

@@ -11,6 +11,7 @@ Os estados Terraform são separados para reduzir o impacto das mudanças e devem
 | `kubernetes-addons` | Instala External Secrets, Metrics Server e AWS Load Balancer Controller no EKS. |
 | `kubernetes-configs` | Cria namespaces, SecretStore e a stack de observabilidade. |
 | `api-gateway` | Cria HTTP API, VPC Link, stage, throttling e access logs após o ALB interno existir. |
+| `serverless` | Cria a Lambda authorizer, rede, IAM e rotas protegidas do API Gateway. |
 
 O PostgreSQL/RDS e seu segredo ficam no repositório [`fiap-tech-challenge-db`](https://github.com/Maieru/fiap-tech-challenge-db).
 
@@ -20,11 +21,12 @@ Na primeira implantação, intercale o banco e o deploy das aplicações entre o
 
 ```text
 bootstrap → aws-resources → database → kubernetes-addons → kubernetes-configs
-→ deploy das aplicações e Ingresses → api-gateway
+→ deploy das aplicações e Ingresses → api-gateway → serverless
 ```
 
 `kubernetes-addons` lê tanto o state de `aws-resources` quanto o state de `database`, pois a IAM Role do External Secrets precisa de acesso aos dois segredos.
 O estado `api-gateway` só pode ser planejado depois que o AWS Load Balancer Controller criar o ALB `fiap-internal-edge`, pois a integração privada usa o ARN do listener desse balanceador.
+O estado `serverless` depende dos outputs de `aws-resources`, `database` e `api-gateway`. Ele cria a função com um pacote bootstrap, mas ignora alterações posteriores no código, que são publicadas exclusivamente pelo repositório serverless.
 
 ## Pré-requisitos
 
@@ -104,6 +106,22 @@ terraform -chdir=infra/api-gateway apply .terraform/tfplan
 
 O endpoint público encaminha todas as rotas pelo VPC Link ao ALB interno. O ALB envia `/api/*` ao backend e utiliza o frontend como destino das demais rotas. Os access logs não armazenam headers, corpos ou tokens e permanecem sete dias no CloudWatch Logs.
 
+## Serverless
+
+Depois do API Gateway, aplique o estado da Lambda authorizer:
+
+```powershell
+terraform -chdir=infra/serverless init
+terraform -chdir=infra/serverless fmt -check
+terraform -chdir=infra/serverless validate
+terraform -chdir=infra/serverless plan -out=.terraform/tfplan
+terraform -chdir=infra/serverless apply .terraform/tfplan
+```
+
+Esse estado controla toda a configuracao da funcao, mas nao controla novas
+publicacoes do ZIP. O deploy do codigo e realizado pela action
+`deploy-authorizer.yml` do repositorio serverless.
+
 ## GitHub Actions
 
 Este repositório é responsável por executar seus próprios estados Terraform:
@@ -112,8 +130,8 @@ Este repositório é responsável por executar seus próprios estados Terraform:
 | --- | --- |
 | `apply-core-infrastructure.yml` | Aplica `bootstrap` e `aws-resources`. |
 | `apply-kubernetes-infrastructure.yml` | Aplica `kubernetes-addons` e `kubernetes-configs`, depois que o banco existe. |
-| `apply-edge-infrastructure.yml` | Aplica `api-gateway` depois que o deploy criar o ALB interno. |
-| `destroy-kubernetes-infrastructure.yml` | Destrói API Gateway, Ingresses/ALB, `kubernetes-configs` e `kubernetes-addons`, mantendo o EKS disponível para a remoção do banco. |
+| `apply-edge-infrastructure.yml` | Aplica `api-gateway` e depois `serverless`, após o deploy criar o ALB interno. |
+| `destroy-kubernetes-infrastructure.yml` | Destrói `serverless`, API Gateway, Ingresses/ALB, `kubernetes-configs` e `kubernetes-addons`, mantendo o EKS disponível para a remoção do banco. |
 | `destroy-expensive-infrastructure.yml` | Desabilita o EKS depois que os recursos Kubernetes e o banco de dados forem removidos pelo orquestrador. |
 | `terraform-stage.yml` | Implementação reutilizável de plan, aprovação e apply. |
 
@@ -126,7 +144,7 @@ Para repositórios privados, configure também `REPOSITORIES_TOKEN` com acesso d
 Respeite a ordem inversa:
 
 ```text
-api-gateway → Ingresses/ALB → kubernetes-configs → kubernetes-addons
+serverless → api-gateway → Ingresses/ALB → kubernetes-configs → kubernetes-addons
 → database (repositório DB) → aws-resources → bootstrap
 ```
 
