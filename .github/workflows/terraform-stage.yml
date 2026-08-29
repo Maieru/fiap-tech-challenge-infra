@@ -91,6 +91,15 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      - name: Salvar pacote bootstrap da Lambda
+        if: inputs.stage == 'serverless'
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-bootstrap-${{ inputs.stage }}
+          path: ${{ env.TF_WORKING_DIR }}/bootstrap.zip
+          if-no-files-found: error
+          retention-days: 1
+
   terraform-apply:
     name: Apply
     runs-on: ubuntu-latest
@@ -124,6 +133,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: terraform-plan-${{ inputs.stage }}
+          path: ${{ env.TF_WORKING_DIR }}
+
+      - name: Baixar pacote bootstrap da Lambda
+        if: inputs.stage == 'serverless'
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-bootstrap-${{ inputs.stage }}
           path: ${{ env.TF_WORKING_DIR }}
 
       - name: Terraform Apply

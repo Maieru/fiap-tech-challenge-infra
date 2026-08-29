@@ -83,6 +83,7 @@ resource "aws_apigatewayv2_stage" "default" {
       responseLatency    = "$context.responseLatency"
       integrationStatus  = "$context.integration.status"
       integrationLatency = "$context.integration.latency"
+      authorizerError    = "$context.authorizer.error"
     })
   }
 

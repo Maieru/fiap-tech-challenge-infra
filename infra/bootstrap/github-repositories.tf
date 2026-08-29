@@ -6,7 +6,7 @@ locals {
     }
 
     auth = {
-      repositories = ["fiap-tech-challenge-serverless"]
+      repositories = ["fiap-tech-challenge", "fiap-tech-challenge-serverless"]
       role_name    = "fiap-role-github-actions-auth"
     }
 

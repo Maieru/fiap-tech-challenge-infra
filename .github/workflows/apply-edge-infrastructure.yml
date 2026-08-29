@@ -26,3 +26,13 @@ jobs:
     secrets:
       INFRA_ACTION_ROLE: ${{ secrets.INFRA_ACTION_ROLE }}
       REPOSITORIES_TOKEN: ${{ secrets.REPOSITORIES_TOKEN }}
+
+  serverless-infrastructure:
+    name: Serverless Infrastructure
+    needs: api-gateway
+    uses: ./.github/workflows/terraform-stage.yml
+    with:
+      stage: serverless
+    secrets:
+      INFRA_ACTION_ROLE: ${{ secrets.INFRA_ACTION_ROLE }}
+      REPOSITORIES_TOKEN: ${{ secrets.REPOSITORIES_TOKEN }}

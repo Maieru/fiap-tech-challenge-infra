@@ -129,6 +129,14 @@ resource "aws_iam_policy" "github_actions_infra_policy" {
         Resource = "*"
       },
       {
+        Sid    = "LambdaAccess"
+        Effect = "Allow"
+        Action = [
+          "lambda:*"
+        ]
+        Resource = "*"
+      },
+      {
         Sid    = "IamAccessForTerraform"
         Effect = "Allow"
         Action = [
