@@ -4,6 +4,14 @@ resource "helm_release" "external_secrets" {
   chart            = "external-secrets"
   namespace        = "external-secrets"
   create_namespace = true
+  wait             = true
+  timeout          = 600
+  atomic           = true
+
+  depends_on = [
+    helm_release.aws_load_balancer_controller,
+    aws_eks_pod_identity_association.external_secrets
+  ]
 }
 
 resource "aws_iam_role" "external_secrets" {

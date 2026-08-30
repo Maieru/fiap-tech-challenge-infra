@@ -45,6 +45,9 @@ resource "helm_release" "aws_load_balancer_controller" {
   chart      = "aws-load-balancer-controller"
   version    = "3.5.0"
   namespace  = "kube-system"
+  wait       = true
+  timeout    = 600
+  atomic     = true
 
   set {
     name  = "clusterName"
