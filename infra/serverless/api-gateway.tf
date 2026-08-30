@@ -19,7 +19,7 @@ resource "aws_apigatewayv2_authorizer" "ordem_servico" {
   authorizer_payload_format_version = "2.0"
   authorizer_result_ttl_in_seconds  = 0
   enable_simple_responses           = true
-  identity_sources                  = ["$request.header.X-CPF"]
+  identity_sources                  = ["$request.querystring.token"]
 }
 
 resource "aws_lambda_permission" "api_gateway_authorizer" {
