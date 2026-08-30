@@ -13,7 +13,7 @@ variable "lambda_memory_size" {
 variable "lambda_timeout_seconds" {
   description = "Tempo limite de execucao do authorizer"
   type        = number
-  default     = 10
+  default     = 30
 }
 
 variable "log_retention_days" {
