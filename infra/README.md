@@ -152,4 +152,4 @@ Revise cuidadosamente os planos. A remoção do EKS e do banco pode interromper 
 
 ### New Relic
 
-Após aplicar `kubernetes-addons`, cadastre a chave de ingestão no secret AWS `fiap-newrelic-license` antes de validar o Collector. Veja o [guia de observabilidade](../src/ObservabilityConfig/README.md).
+Configure o GitHub Actions secret `NEW_RELIC_LICENSE_KEY` (ou `TF_VAR_new_relic_license_key` localmente). O estágio `kubernetes-addons` cria o secret AWS `fiap-newrelic-license` e grava seu valor via Terraform. Veja o [guia de observabilidade](../src/ObservabilityConfig/README.md).

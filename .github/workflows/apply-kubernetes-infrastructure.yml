@@ -5,6 +5,8 @@ on:
     secrets:
       INFRA_ACTION_ROLE:
         required: true
+      NEW_RELIC_LICENSE_KEY:
+        required: true
       REPOSITORIES_TOKEN:
         required: false
   workflow_dispatch:
@@ -24,6 +26,7 @@ jobs:
     with:
       stage: kubernetes-addons
     secrets:
+      NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
       INFRA_ACTION_ROLE: ${{ secrets.INFRA_ACTION_ROLE }}
       REPOSITORIES_TOKEN: ${{ secrets.REPOSITORIES_TOKEN }}
 

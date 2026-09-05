@@ -20,6 +20,8 @@ on:
     secrets:
       INFRA_ACTION_ROLE:
         required: true
+      NEW_RELIC_LICENSE_KEY:
+        required: false
       jwt_signing_key:
         required: false
       REPOSITORIES_TOKEN:
@@ -73,6 +75,7 @@ jobs:
       - name: Terraform Plan
         if: inputs.operation == 'apply'
         env:
+          TF_VAR_new_relic_license_key: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
           TF_VAR_jwt_signing_key: ${{ secrets.jwt_signing_key }}
           TF_VAR_create_eks_instance: ${{ inputs.create_eks_instance }}
         run: terraform plan -input=false -out=tfplan
@@ -80,6 +83,7 @@ jobs:
       - name: Terraform Destroy Plan
         if: inputs.operation == 'destroy'
         env:
+          TF_VAR_new_relic_license_key: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
           TF_VAR_jwt_signing_key: ${{ secrets.jwt_signing_key }}
         run: terraform plan -destroy -input=false -out=tfplan
 
