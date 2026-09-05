@@ -149,3 +149,7 @@ serverless → api-gateway → Ingresses/ALB → kubernetes-configs → kubernet
 ```
 
 Revise cuidadosamente os planos. A remoção do EKS e do banco pode interromper a aplicação, e o bucket do state usa `force_destroy`.
+
+### New Relic
+
+Após aplicar `kubernetes-addons`, cadastre a chave de ingestão no secret AWS `fiap-newrelic-license` antes de validar o Collector. Veja o [guia de observabilidade](../src/ObservabilityConfig/README.md).
