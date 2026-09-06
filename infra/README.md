@@ -149,3 +149,7 @@ serverless → api-gateway → Ingresses/ALB → kubernetes-configs → kubernet
 ```
 
 Revise cuidadosamente os planos. A remoção do EKS e do banco pode interromper a aplicação, e o bucket do state usa `force_destroy`.
+
+### New Relic
+
+Configure o GitHub Actions secret `NEW_RELIC_LICENSE_KEY` (ou `TF_VAR_new_relic_license_key` localmente). O estágio `kubernetes-addons` cria o secret AWS `fiap-newrelic-license` e grava seu valor via Terraform. Veja o [guia de observabilidade](../src/ObservabilityConfig/README.md).

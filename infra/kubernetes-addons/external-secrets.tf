@@ -49,7 +49,8 @@ resource "aws_iam_role_policy" "external_secrets" {
         ]
         Resource = [
           data.terraform_remote_state.aws_resources.outputs.backend_secret_arn,
-          data.terraform_remote_state.database.outputs.database_credentials_secret_arn
+          data.terraform_remote_state.database.outputs.database_credentials_secret_arn,
+          aws_secretsmanager_secret.newrelic_license.arn
         ]
       }
     ]
