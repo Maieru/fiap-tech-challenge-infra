@@ -1,0 +1,51 @@
+global:
+  customSecretName: newrelic-license
+  customSecretLicenseKey: license-key
+  lowDataMode: true
+
+newrelic-infrastructure:
+  enabled: true
+  controlPlane:
+    enabled: false
+  ksm:
+    config:
+      selector: "newrelic.com/custom-ksm=true"
+
+kube-state-metrics:
+  enabled: true
+  prometheusScrape: false
+  customLabels:
+    newrelic.com/custom-ksm: "true"
+  metricLabelsAllowlist:
+    - "pods=[app]"
+    - "deployments=[app]"
+  metricAnnotationsAllowList: []
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+newrelic-logging:
+  enabled: false
+nri-metadata-injection:
+  enabled: false
+nri-prometheus:
+  enabled: false
+newrelic-prometheus-agent:
+  enabled: false
+nri-kube-events:
+  enabled: false
+newrelic-pixie:
+  enabled: false
+pixie-chart:
+  enabled: false
+nr-ebpf-agent:
+  enabled: false
+k8s-agents-operator:
+  enabled: false
+newrelic-infra-operator:
+  enabled: false
+newrelic-k8s-metrics-adapter:
+  enabled: false

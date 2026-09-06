@@ -41,3 +41,97 @@ Para diagnóstico, use `docker compose logs otel-collector` ou `kubectl -n fiap-
 A API passa a exportar métricas exclusivamente por OTLP; o endpoint `/metrics` e o exporter Prometheus foram removidos. Esta integração envia a telemetria de aplicação existente; dashboards Grafana, monitoramento de nós Kubernetes e recursos exclusivos do agente New Relic Browser não são migrados automaticamente.
 
 Referência: [configuração oficial OTLP do New Relic](https://docs.newrelic.com/docs/opentelemetry/best-practices/opentelemetry-otlp/).
+
+
+## CPU e memória do Kubernetes
+
+O estágio `infra/kubernetes-configs` instala o Helm release `newrelic-bundle`, chart `nri-bundle` fixado em `8.0.22`, no namespace `fiap-observability`. Os valores estão em `newrelic-kubernetes-values.yaml`. O nome do cluster vem do output EKS do estágio `aws-resources`.
+
+Componentes habilitados:
+
+- DaemonSet `newrelic-bundle-nrk8s-kubelet`: coleta recursos de nós, pods e containers.
+- Deployment `newrelic-bundle-kube-state-metrics`: expõe o estado dos objetos Kubernetes.
+- Deployment `newrelic-bundle-nrk8s-ksm`: coleta esse estado e o envia ao New Relic.
+
+A integração usa `newrelic-license`, campo `license-key`, criado pelo ExternalSecret existente. A chave não é passada como valor Helm. O Helm aguarda os workloads ficarem prontos por até 10 minutos, incluindo o tempo de sincronização do Secret. Falhas na instalação acionam rollback (`atomic`).
+
+A telemetria do cluster é enviada diretamente pela integração ao New Relic. Traces, métricas e logs da aplicação continuam no Collector OTLP existente. Logging, injeção de agentes, Prometheus adicional, Pixie e eventos Kubernetes estão desabilitados neste bundle. O metrics-server existente continua atendendo o Kubernetes/HPA; ele não substitui kube-state-metrics.
+
+A configuração atende aos managed node groups EC2 atuais. Não configura coleta dos componentes internos do control plane gerenciado do EKS nem suporte a Fargate. `global.lowDataMode=true` usa intervalo de 30 segundos na integração de infraestrutura. O chart cria RBAC de leitura e utiliza os acessos ao nó previstos pelo agente, incluindo container privilegiado. Os agentes precisam acessar o kubelet, a API Kubernetes e os endpoints HTTPS de ingestão do New Relic.
+
+### Aplicação
+
+Execute o workflow de infraestrutura existente, mantendo a ordem `aws-resources` → `kubernetes-addons` → `kubernetes-configs`. Para um ambiente já provisionado, reaplique `kubernetes-configs` com as mudanças. Não é necessário alterar o backend ou informar outra licença.
+
+Execução local, a partir da raiz de `FiapTechChallengeInfra`, com credenciais AWS do ambiente:
+
+```powershell
+terraform -chdir=infra/kubernetes-configs init
+terraform -chdir=infra/kubernetes-configs plan -out=tfplan
+terraform -chdir=infra/kubernetes-configs apply tfplan
+```
+
+Revise o plano antes de aplicar, inclusive outras mudanças pendentes desse estágio. O lockfile inclui o provider Helm 2.17.0. Na destruição, a dependência Terraform remove o release antes dos manifests e do namespace que ele utiliza.
+
+### Conferência após aplicação
+
+```powershell
+kubectl -n fiap-observability wait --for=condition=Ready externalsecret/newrelic-license --timeout=180s
+helm status newrelic-bundle -n fiap-observability
+kubectl -n fiap-observability rollout status daemonset/newrelic-bundle-nrk8s-kubelet --timeout=180s
+kubectl -n fiap-observability rollout status deployment/newrelic-bundle-kube-state-metrics --timeout=180s
+kubectl -n fiap-observability rollout status deployment/newrelic-bundle-nrk8s-ksm --timeout=180s
+kubectl -n fiap-observability get pods -o wide
+```
+
+No New Relic, abra Kubernetes e procure o nome real do cluster EKS. Aguarde alguns minutos para a ingestão inicial. Para conferir a chegada:
+
+```sql
+FROM K8sNodeSample, K8sPodSample, K8sContainerSample
+SELECT count(*) FACET eventType(), clusterName SINCE 15 minutes ago
+```
+
+As consultas abaixo usam `K8sContainerSample`, não `Metric`. Substitua `SEU_CLUSTER_EKS` pelo nome do cluster.
+
+CPU por container (millicores; 1000 mCPU = 1 core):
+
+```sql
+FROM K8sContainerSample
+SELECT average(cpuUsedCores) * 1000 AS 'CPU (mCPU)'
+WHERE clusterName = 'SEU_CLUSTER_EKS'
+  AND namespaceName IN ('fiap-backend', 'fiap-frontend')
+FACET namespaceName, podName, containerName
+SINCE 1 hour ago TIMESERIES 1 minute LIMIT MAX
+```
+
+Memória por container (working set em MiB):
+
+```sql
+FROM K8sContainerSample
+SELECT average(memoryWorkingSetBytes) / 1048576 AS 'Memória (MiB)'
+WHERE clusterName = 'SEU_CLUSTER_EKS'
+  AND namespaceName IN ('fiap-backend', 'fiap-frontend')
+FACET namespaceName, podName, containerName
+SINCE 1 hour ago TIMESERIES 1 minute LIMIT MAX
+```
+
+Memória relativa ao limite configurado, para containers com limite:
+
+```sql
+FROM K8sContainerSample
+SELECT average(memoryWorkingSetUtilization) AS 'Memória (% do limite)'
+WHERE clusterName = 'SEU_CLUSTER_EKS' AND memoryLimitBytes > 0
+  AND namespaceName IN ('fiap-backend', 'fiap-frontend')
+FACET namespaceName, podName, containerName
+SINCE 1 hour ago TIMESERIES 1 minute LIMIT MAX
+```
+
+Para visão de nós, pods e workloads, use também o Kubernetes Cluster Explorer fornecido pela integração.
+
+Se os pods ficarem Pending, confira `kubectl describe pod` e a capacidade dos nós. Nos valores padrão do chart, o DaemonSet reserva aproximadamente 200m CPU e 300 MB de memória por nó (dois containers); o coletor KSM reserva outros 200m/300 MB no cluster, além do kube-state-metrics configurado com 50m/64Mi. Isso deve ser considerado nos nós t3.small atuais. O modo de menor volume reduz a frequência de envio, não essas reservas.
+
+Na rotação da licença, após sincronizar o ExternalSecret, reinicie também `daemonset/newrelic-bundle-nrk8s-kubelet` e `deployment/newrelic-bundle-nrk8s-ksm`, além do Collector, pois a chave é carregada por variável de ambiente.
+
+Validação local: `terraform validate`, `terraform fmt -check` e renderização `helm template` do chart fixado. Essa validação não comprova conectividade nem ingestão real; essas verificações dependem da aplicação no EKS.
+
+Referências: [chart nri-bundle](https://github.com/newrelic/helm-charts/tree/master/charts/nri-bundle), [integração de infraestrutura](https://github.com/newrelic/nri-kubernetes/tree/main/charts/newrelic-infrastructure) e [dicionário das métricas](https://docs.newrelic.com/attribute-dictionary/).
