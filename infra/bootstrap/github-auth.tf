@@ -99,9 +99,16 @@ resource "aws_iam_role_policy" "serverless_code_deploy" {
         Action = [
           "lambda:GetFunction",
           "lambda:GetFunctionConfiguration",
+          "lambda:PublishVersion",
           "lambda:UpdateFunctionCode"
         ]
         Resource = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:fiap-ordem-servico-authorizer"
+      },
+      {
+        Sid      = "InspectPublishedAuthorizerVersion"
+        Effect   = "Allow"
+        Action   = "lambda:GetFunctionConfiguration"
+        Resource = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:fiap-ordem-servico-authorizer:*"
       }
     ]
   })
