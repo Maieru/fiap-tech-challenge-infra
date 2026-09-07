@@ -1,7 +1,7 @@
 resource "aws_secretsmanager_secret" "newrelic_license" {
   name                    = "fiap-newrelic-license"
   description             = "New Relic ingest license key for OpenTelemetry Collector"
-  recovery_window_in_days = 7
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "newrelic_license" {
