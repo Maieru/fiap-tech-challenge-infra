@@ -14,7 +14,7 @@ A chave existe apenas no ambiente do Collector: nunca a coloque em variáveis `V
 
 ## Kubernetes / AWS
 
-A configuração de produção está no repositório `FiapTechChallengeInfra`:
+A configuração remota de laboratório está no repositório `FiapTechChallengeInfra`:
 
 1. Configure o GitHub Actions secret `NEW_RELIC_LICENSE_KEY` com a chave de ingestão no repositório que dispara o workflow (`FiapTechChallengeFase1` para o orquestrador; `FiapTechChallengeInfra` para execução direta). Os workflows de aplicação e destruição repassam esse secret ao Terraform.
 2. Aplique o estágio `infra/kubernetes-addons`. O Terraform cria o secret `fiap-newrelic-license` e sua versão com o JSON `{"license-key":"..."}` a partir da variável sensível e obrigatória `new_relic_license_key`. Para execução local, forneça `TF_VAR_new_relic_license_key` no ambiente antes de executar `terraform plan`/`apply` (também no `destroy`). Não é necessário cadastrar o valor manualmente no AWS Secrets Manager.
@@ -24,7 +24,7 @@ A configuração de produção está no repositório `FiapTechChallengeInfra`:
 
 O workflow existente já aplica os estágios na ordem correta. O valor é gravado durante o estágio de add-ons, antes de configurar o Collector. A variável sensível oculta a chave na saída normal do Terraform, mas o valor fica armazenado no estado e no plano salvo (`tfplan`); restrinja o acesso ao backend e aos artifacts do workflow. O plano de `kubernetes-configs` remove os Deployments, Services e ConfigMaps antigos de Grafana, Prometheus, Loki e Jaeger. Se precisar do histórico ou de dashboards personalizados, exporte-os antes de aplicar: eles não são importados automaticamente pelo New Relic.
 
-Para rotacionar a chave, atualize `NEW_RELIC_LICENSE_KEY` e reaplique `kubernetes-addons`; o Terraform cria uma nova versão do secret. Depois, aguarde a sincronização do ExternalSecret (até 1h) e execute `kubectl -n fiap-observability rollout restart deployment/otel-collector`, pois variáveis de ambiente não são atualizadas em pods existentes. O secret AWS possui janela de recuperação de 7 dias; ao destruir e recriar a infraestrutura nesse intervalo, restaure/importe o secret ou aguarde sua exclusão antes de recriá-lo.
+Para rotacionar a chave, atualize `NEW_RELIC_LICENSE_KEY` e reaplique `kubernetes-addons`; o Terraform cria uma nova versão do secret. Depois, aguarde a sincronização do ExternalSecret (até 1h) e execute `kubectl -n fiap-observability rollout restart deployment/otel-collector`, pois variáveis de ambiente não são atualizadas em pods existentes. O Terraform configura `recovery_window_in_days = 0` para esse segredo, sem janela de recuperação.
 
 ## Verificação no New Relic
 
