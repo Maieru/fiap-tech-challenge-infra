@@ -135,7 +135,7 @@ Este repositório é responsável por executar seus próprios estados Terraform:
 | `apply-edge-infrastructure.yml` | Aplica `api-gateway` e depois `serverless`, após o deploy criar o ALB interno. |
 | `destroy-kubernetes-infrastructure.yml` | Destrói `serverless`, API Gateway, Ingresses/ALB, `kubernetes-configs` e `kubernetes-addons`, mantendo o EKS disponível para a remoção do banco. |
 | `destroy-expensive-infrastructure.yml` | Desabilita o EKS depois que os recursos Kubernetes e o banco de dados forem removidos pelo orquestrador. |
-| `terraform-stage.yml` | Implementação reutilizável de fmt, validate, plan e apply automático do plano salvo, sem aprovação humana declarada. |
+| `terraform-stage.yml` | Implementação reutilizável de validação, plan e apply automático, sem gate humano declarado. |
 
 Todos podem ser chamados pelo orquestrador do repositório da aplicação; os workflows de alto nível também podem ser iniciados manualmente neste repositório. Configure `INFRA_ACTION_ROLE`, `jwt_signing_key` e `NEW_RELIC_LICENSE_KEY` nos repositórios que iniciarem os fluxos. O ARN da role é o output `github_actions_infra_role_arn["k8s_infra"]` do bootstrap.
 

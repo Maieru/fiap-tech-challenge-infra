@@ -24,7 +24,7 @@ A configuração remota de laboratório está no repositório `FiapTechChallenge
 
 O workflow existente já aplica os estágios na ordem correta. O valor é gravado durante o estágio de add-ons, antes de configurar o Collector. A variável sensível oculta a chave na saída normal do Terraform, mas o valor fica armazenado no estado e no plano salvo (`tfplan`); restrinja o acesso ao backend e aos artifacts do workflow. O plano de `kubernetes-configs` remove os Deployments, Services e ConfigMaps antigos de Grafana, Prometheus, Loki e Jaeger. Se precisar do histórico ou de dashboards personalizados, exporte-os antes de aplicar: eles não são importados automaticamente pelo New Relic.
 
-Para rotacionar a chave, atualize `NEW_RELIC_LICENSE_KEY` e reaplique `kubernetes-addons`; o Terraform cria uma nova versão do secret. Depois, aguarde a sincronização do ExternalSecret (até 1h) e execute `kubectl -n fiap-observability rollout restart deployment/otel-collector`, pois variáveis de ambiente não são atualizadas em pods existentes. O Terraform configura `recovery_window_in_days = 0` para esse segredo, sem janela de recuperação.
+Para rotacionar a chave, atualize `NEW_RELIC_LICENSE_KEY` e reaplique `kubernetes-addons`; o Terraform cria uma nova versão do secret. Depois, aguarde a sincronização do ExternalSecret (até 1h) e execute `kubectl -n fiap-observability rollout restart deployment/otel-collector`, pois variáveis de ambiente não são atualizadas em pods existentes. O Terraform atual usa recovery_window_in_days = 0 para esse segredo, sem janela de recuperação configurada.
 
 ## Verificação no New Relic
 
@@ -38,7 +38,7 @@ FROM Metric SELECT uniques(metricName) WHERE service.name = 'fiap-tech-challenge
 
 Para diagnóstico, use `docker compose logs otel-collector` ou `kubectl -n fiap-observability logs deployment/otel-collector`. Erros 401/403 indicam problema de chave/conta; confira também região e saída HTTPS na porta 443. O Collector usa lotes de até 256 registros, gzip, limite de memória e retentativas. A fila é em memória: reinícios podem perder dados pendentes. Se receber 413, reduza o lote ou o tamanho dos registros (o limite de ingestão é por bytes).
 
-A API passa a exportar métricas exclusivamente por OTLP; o endpoint `/metrics` e o exporter Prometheus foram removidos. Esta integração envia a telemetria de aplicação existente; dashboards Grafana, monitoramento de nós Kubernetes e recursos exclusivos do agente New Relic Browser não são migrados automaticamente.
+A API passa a exportar métricas exclusivamente por OTLP; o endpoint `/metrics` e o exporter Prometheus foram removidos. O Collector envia telemetria da aplicação. A coleta de CPU/memória e estado do Kubernetes é declarada separadamente pelo chart nri-bundle no estágio kubernetes-configs. Dashboards Grafana e recursos exclusivos do agente New Relic Browser não são migrados automaticamente.
 
 Referência: [configuração oficial OTLP do New Relic](https://docs.newrelic.com/docs/opentelemetry/best-practices/opentelemetry-otlp/).
 
