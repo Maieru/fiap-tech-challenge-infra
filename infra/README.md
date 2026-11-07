@@ -49,6 +49,17 @@ Um add-on marcado como tainted pelo apply anterior pode ser recriado no próximo
 
 aws-resources → database (DB) → kubernetes-addons → kubernetes-configs → messaging → inicialização/migrations/aplicações → api-gateway.
 
+O node group usa três `c7i-flex.large` x86_64, com 2 vCPUs e 4 GiB por nó. Esse tipo mantém a capacidade prevista originalmente com `t3.medium` e é [elegível ao Free Tier atual](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-free-tier-usage.html). A troca corrige `AsgInstanceLaunchFailures / InvalidParameterCombination` quando a conta restringe o lançamento aos tipos elegíveis. Não reduzir para instâncias micro/small: o Kafka solicita 1536 MiB em um único pod, além da memória necessária para sistema, agentes e demais aplicações.
+
+Em 07/11/2026, consultas somente de leitura na conta do deploy confirmaram `FreeTierEligible=true`, 2 vCPUs, 4096 MiB e arquitetura x86_64 para `c7i-flex.large`, com oferta em `us-east-1a` e `us-east-1b`. Oferta não garante capacidade instantânea. Para conferir novamente:
+
+```powershell
+aws ec2 describe-instance-types --region us-east-1 --instance-types c7i-flex.large --query 'InstanceTypes[].{Type:InstanceType,FreeTier:FreeTierEligible,vCPU:VCpuInfo.DefaultVCpus,MemoryMiB:MemoryInfo.SizeInMiB}'
+aws ec2 describe-instance-type-offerings --region us-east-1 --location-type availability-zone --filters Name=instance-type,Values=c7i-flex.large Name=location,Values=us-east-1a,us-east-1b
+```
+
+Publicar a alteração no Infra e iniciar uma nova execução `apply` do workflow central. Revisar a substituição do node group com falha no plano; manter state e recursos gerenciados pelo Terraform. Esta mudança de tipo não exige reaplicar o bootstrap de IAM. Elegibilidade EC2 não torna a plataforma inteira gratuita: créditos, prazo do plano e cobrança dos demais serviços devem ser acompanhados na conta.
+
 O Terraform do gateway recebe internal_alb_listener_arn pela pipeline, guarda-o em output e não usa lookup obrigatório do ALB durante destroy. O plano fica no diretório temporário do runner e é aplicado no mesmo job, sem artifact de plano.
 
 A geração de JWT/senhas é automática. Não fornecer jwt_signing_key/db_password/db_username como variables de Terraform. NEW_RELIC_LICENSE_KEY continua um secret externo de ingestão. Leitura de remote state expõe o state completo à role autorizada, inclusive valores sensíveis; isto não é um mecanismo de isolamento de segredos.
