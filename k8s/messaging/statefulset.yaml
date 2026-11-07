@@ -41,7 +41,10 @@ spec:
               containerPort: 9093
           env:
             - name: CLUSTER_ID
-              value: ${cluster_id}
+              valueFrom:
+                configMapKeyRef:
+                  name: kafka-cluster
+                  key: cluster-id
             - name: KAFKA_NODE_ID
               value: "1"
             - name: KAFKA_PROCESS_ROLES

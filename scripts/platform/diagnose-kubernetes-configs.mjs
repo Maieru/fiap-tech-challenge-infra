@@ -16,6 +16,12 @@ export function summarize(resource) {
     ...(resource.kind === 'Event' ? {reason:resource.reason,message:resource.message,object:resource.involvedObject?.name} : {})};
 }
 
+export function diagnosticNamespaces(stage) {
+  if (stage === 'kubernetes-configs') return ['fiap-observability'];
+  if (stage === 'messaging') return ['fiap-messaging','fiap-mongodb'];
+  throw new Error('Estagio de diagnostico invalido.');
+}
+
 function inspect(args) {
   const result = spawnSync('kubectl',[...args,'--request-timeout=10s','-o','json'],{encoding:'utf8',timeout:60000});
   if (result.error || result.status !== 0) {
@@ -28,8 +34,11 @@ function inspect(args) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  inspect(['-n','fiap-observability','get','pods,deployments,daemonsets,externalsecrets,secretstores']);
-  // Events sobrevivem ao rollback atomic do Helm e preservam falhas de scheduling/pull/Secret.
-  inspect(['-n','fiap-observability','get','events','--sort-by=.lastTimestamp']);
+  for (const namespace of diagnosticNamespaces(process.env.STAGE || 'kubernetes-configs')) {
+    console.log('Diagnostico Kubernetes: ' + namespace);
+    inspect(['-n',namespace,'get','pods,deployments,daemonsets,statefulsets,jobs,persistentvolumeclaims,externalsecrets,secretstores']);
+    // Events sobrevivem ao rollback e preservam falhas de scheduling/pull/Secret/volumes.
+    inspect(['-n',namespace,'get','events','--sort-by=.lastTimestamp']);
+  }
   inspect(['get','nodes']);
 }
