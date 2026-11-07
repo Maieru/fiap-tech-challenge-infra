@@ -21,7 +21,7 @@ resource "kubernetes_role_v1" "application_delivery" {
   }
   rule {
     api_groups = [""]
-    resources  = ["pods", "events"]
+    resources  = ["pods", "pods/log", "events"]
     verbs      = ["get", "list", "watch"]
   }
   rule {
@@ -57,6 +57,11 @@ resource "kubernetes_role_v1" "application_delivery" {
       resources  = ["ingresses"]
       verbs      = ["get", "list", "watch", "create", "update", "patch"]
     }
+  }
+  rule {
+    api_groups = ["batch"]
+    resources  = ["jobs"]
+    verbs      = ["get", "list", "watch", "create", "delete"]
   }
   depends_on = [kubernetes_namespace_v1.from_yaml]
 }

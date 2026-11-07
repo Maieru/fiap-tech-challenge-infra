@@ -33,9 +33,13 @@ resource "kubernetes_namespace_v1" "from_yaml" {
 resource "kubernetes_manifest" "secret_store_from_yaml" {
   for_each = local.kubernetes_secret_stores
 
-  manifest = each.value
+  manifest = merge(each.value, { spec = { provider = { aws = {
+    service = "SecretsManager", region = var.aws_region
+    role    = aws_iam_role.secret_store[split("/", each.key)[0]].arn
+  } } } })
 
   depends_on = [
-    kubernetes_namespace_v1.from_yaml
+    kubernetes_namespace_v1.from_yaml,
+    aws_iam_role_policy.secret_store
   ]
 }

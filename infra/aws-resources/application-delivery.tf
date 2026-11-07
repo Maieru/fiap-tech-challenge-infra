@@ -2,6 +2,7 @@ resource "aws_ecr_repository" "application" {
   for_each             = toset(["os", "execution", "billing"])
   name                 = "fiap-ecr-${each.key}-repository"
   image_tag_mutability = "IMMUTABLE"
+  force_delete         = true
 }
 
 # RBAC e aplicado pelo kubernetes-configs; nenhuma role de aplicacao e cluster-admin.

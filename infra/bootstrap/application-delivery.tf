@@ -41,7 +41,7 @@ resource "aws_iam_role" "application_delivery" {
       Condition = {
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          "token.actions.githubusercontent.com:sub" = "repo:${var.github_owner}/${each.value.repository}:ref:refs/heads/${var.github_branch}"
+          "token.actions.githubusercontent.com:sub" = "repo:${var.github_owner}/fiap-tech-challenge:ref:refs/heads/${var.github_branch}"
         }
       }
     }]
