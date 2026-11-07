@@ -33,10 +33,20 @@ resource "kubernetes_namespace_v1" "from_yaml" {
 resource "kubernetes_manifest" "secret_store_from_yaml" {
   for_each = local.kubernetes_secret_stores
 
-  manifest = merge(each.value, { spec = { provider = { aws = {
-    service = "SecretsManager", region = var.aws_region
-    role    = aws_iam_role.secret_store[split("/", each.key)[0]].arn
-  } } } })
+  manifest = merge(each.value, {
+    metadata = merge(each.value.metadata, {
+      annotations = merge(try(each.value.metadata.annotations, {}), {
+        "fiap.tech-challenge/iam-policy-checksum" = sha256(jsonencode({
+          trust = aws_iam_role.secret_store[split("/", each.key)[0]].assume_role_policy
+          read  = aws_iam_role_policy.secret_store[split("/", each.key)[0]].policy
+        }))
+      })
+    })
+    spec = { provider = { aws = {
+      service = "SecretsManager", region = var.aws_region
+      role    = aws_iam_role.secret_store[split("/", each.key)[0]].arn
+    } } }
+  })
 
   depends_on = [
     kubernetes_namespace_v1.from_yaml,
