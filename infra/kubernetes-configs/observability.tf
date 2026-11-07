@@ -32,6 +32,20 @@ resource "kubernetes_manifest" "observability_application" {
 
   manifest = each.value
 
+  dynamic "wait" {
+    for_each = each.value.kind == "ExternalSecret" ? [true] : []
+    content {
+      condition {
+        type   = "Ready"
+        status = "True"
+      }
+    }
+  }
+  timeouts {
+    create = "5m"
+    update = "5m"
+  }
+
   depends_on = [
     kubernetes_namespace_v1.from_yaml,
     kubernetes_config_map_v1.otel_collector,

@@ -55,11 +55,11 @@ resource "kubernetes_manifest" "bootstrap_secrets" {
   for_each = data.terraform_remote_state.database.outputs.database_secret_arns
   manifest = {
     apiVersion = "external-secrets.io/v1", kind = "ExternalSecret"
-    metadata   = { name = "database-${each.key}", namespace = "fiap-data-bootstrap" }
+    metadata   = { name = "database-${replace(each.key, "_", "-")}", namespace = "fiap-data-bootstrap" }
     spec = {
       refreshInterval = "1h"
       secretStoreRef  = { name = "aws-secrets-store", kind = "SecretStore" }
-      target          = { name = "database-${each.key}", creationPolicy = "Owner" }
+      target          = { name = "database-${replace(each.key, "_", "-")}", creationPolicy = "Owner" }
       dataFrom        = [{ extract = { key = each.value } }]
     }
   }
