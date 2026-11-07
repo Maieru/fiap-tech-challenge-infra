@@ -40,7 +40,7 @@ resource "aws_iam_role_policy" "external_secrets" {
   role = aws_iam_role.external_secrets.id
   policy = jsonencode({ Version = "2012-10-17", Statement = [{
     Effect = "Allow", Action = ["sts:AssumeRole"]
-    Resource = [for name in ["os", "execution", "billing", "observability", "data-bootstrap"] :
+    Resource = [for name in ["os", "execution", "billing", "observability", "data-bootstrap", "mongodb"] :
     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/fiap-eso-${name}"]
   }] })
 }

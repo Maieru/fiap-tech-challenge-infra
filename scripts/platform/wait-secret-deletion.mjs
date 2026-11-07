@@ -2,7 +2,7 @@ import {execFileSync} from 'node:child_process';
 const names={
   'aws-resources':['fiap-secret-manager-jwt-signing-key'],
   'kubernetes-addons':['fiap-newrelic-license'],
-  database:['fiap-os-database-credentials','fiap-billing-database-credentials','fiap-execution-database-credentials','fiap-postgres-admin','fiap-documentdb-admin']
+  database:['fiap-os-database-credentials','fiap-billing-database-credentials','fiap-execution-database-credentials','fiap-postgres-admin','fiap-mongodb-admin','fiap-documentdb-admin']
 }[process.env.STAGE]||[];
 for(const name of names){
  let removed=false;

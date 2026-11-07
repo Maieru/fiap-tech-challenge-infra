@@ -1,6 +1,6 @@
 # Infraestrutura AWS dos microsserviços
 
-Terraform provisiona VPC, EKS/ECR, IAM, EBS CSI, External Secrets, Kafka, observabilidade e API Gateway. RDS/DocumentDB e seus segredos pertencem ao repositório DB; aplicações mantêm imagens, migrations e workloads. O monólito e o authorizer Lambda não fazem parte do ciclo novo.
+Terraform provisiona VPC, EKS/ECR, IAM, EBS CSI, External Secrets, Kafka, MongoDB, observabilidade e API Gateway. RDS e os segredos/certificados dos bancos pertencem ao repositório DB; aplicações mantêm imagens, migrations e workloads. O monólito e o authorizer Lambda não fazem parte do ciclo novo.
 
 A entrada operacional é **Manage AWS microservices platform**, no repositório principal. Ela chama os workflows reutilizáveis deste repositório, com commits explícitos e OIDC do chamador central. Não há execução manual avulsa de provisionamento.
 
@@ -14,7 +14,7 @@ Consulte o [guia dos estágios e bootstrap](infra/README.md) e o [guia operacion
 | aws-resources | Rede, EKS/ECR, Pod Identity, EBS CSI, credencial JWT aleatória e access entries |
 | kubernetes-addons | Controllers, metrics-server e licença New Relic |
 | kubernetes-configs | Namespaces, RBAC, SecretStores/roles por namespace, CAs e observabilidade |
-| messaging | Kafka KRaft, PVC gp3, Service interno, NetworkPolicy e tópicos |
+| messaging | Kafka KRaft e MongoDB replica set, PVCs gp3, Services internos, NetworkPolicies e tópicos |
 | api-gateway | HTTPS público, VPC Link e integração com listener ALB recebido por input |
 
 O diretório infra/serverless permanece como referência de retirada do legado, não é um estágio aceito pelo workflow novo. Não deve ser aplicado após a transição.

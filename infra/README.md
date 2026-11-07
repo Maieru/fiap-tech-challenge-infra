@@ -47,7 +47,9 @@ Um add-on marcado como tainted pelo apply anterior pode ser recriado no próximo
 
 ## Estados e dependências
 
-aws-resources → database (DB) → kubernetes-addons → kubernetes-configs → messaging → inicialização/migrations/aplicações → api-gateway.
+aws-resources → database (DB: RDS, segredos e TLS MongoDB) → kubernetes-addons → kubernetes-configs → messaging (Kafka/MongoDB) → inicialização/migrations/aplicações → api-gateway.
+
+MongoDB substitui DocumentDB e usa replica set rs0 de um membro com autenticação/TLS, Service interno e PVC gp3 criptografado de 20 GiB. A role ESO fiap-eso-mongodb acessa somente o segredo fiap-mongodb-admin criado pelo DB. Reaplicar o bootstrap administrativo antes do primeiro apply dessa versão para autorizar o novo segredo na role Database. Publicar Infra/DB/Execution antes de iniciar uma nova execução central; revisar a remoção do DocumentDB/segredo antigo no plano, sem descartar o state. Não há migração de dados; o destroy remove os PVCs/EBS MongoDB e Kafka antes de retirar EBS CSI.
 
 O node group usa três `c7i-flex.large` x86_64, com 2 vCPUs e 4 GiB por nó. Esse tipo mantém a capacidade prevista originalmente com `t3.medium` e é [elegível ao Free Tier atual](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-free-tier-usage.html). A troca corrige `AsgInstanceLaunchFailures / InvalidParameterCombination` quando a conta restringe o lançamento aos tipos elegíveis. Não reduzir para instâncias micro/small: o Kafka solicita 1536 MiB em um único pod, além da memória necessária para sistema, agentes e demais aplicações.
 

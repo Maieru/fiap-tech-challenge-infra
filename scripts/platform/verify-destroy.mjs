@@ -3,8 +3,8 @@ const aws=(...args)=>JSON.parse(execFileSync('aws',[...args,'--output','json','-
 const leftovers=[];
 if(aws('eks','list-clusters').clusters.includes('fiap-eks-cluster'))leftovers.push('EKS');
 if(aws('ec2','describe-vpcs','--filters','Name=tag:Name,Values=fiap-vpc').Vpcs.length)leftovers.push('VPC');
-if(aws('ec2','describe-volumes','--filters','Name=tag:Project,Values=fiap-tech-challenge','Name=tag:Component,Values=kafka').Volumes.length)leftovers.push('EBS Kafka');
+if(aws('ec2','describe-volumes','--filters','Name=tag:Project,Values=fiap-tech-challenge','Name=tag:Component,Values=kafka,mongodb').Volumes.length)leftovers.push('EBS Kafka/MongoDB');
 if(aws('elbv2','describe-load-balancers').LoadBalancers.some(lb=>lb.LoadBalancerName==='fiap-internal-edge'))leftovers.push('ALB');
 if(aws('ecr','describe-repositories').repositories.some(repo=>repo.repositoryName.startsWith('fiap-ecr-')))leftovers.push('ECR');
 if(leftovers.length)throw new Error('Recursos operacionais ainda existem: '+leftovers.join(', '));
-console.log('Remocao de EKS, VPC, EBS Kafka, ALB e ECR verificada. Bootstrap/state preservados.');
+console.log('Remocao de EKS, VPC, EBS Kafka/MongoDB, ALB e ECR verificada. Bootstrap/state preservados.');
