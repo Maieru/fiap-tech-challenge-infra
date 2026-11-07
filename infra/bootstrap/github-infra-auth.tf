@@ -163,6 +163,16 @@ resource "aws_iam_policy" "platform_infra" {
         ]
       },
       {
+        "Sid" : "ReadEksNodegroupServiceLinkedRole",
+        "Effect" : "Allow",
+        "Action" : [
+          "iam:GetRole"
+        ],
+        "Resource" : [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/eks-nodegroup.amazonaws.com/AWSServiceRoleForAmazonEKSNodegroup"
+        ]
+      },
+      {
         "Effect" : "Allow",
         "Action" : [
           "iam:PassRole"

@@ -31,6 +31,20 @@ terraform -chdir=infra/bootstrap apply .terraform/bootstrap.tfplan
 
 Revisar o plano antes de aplicar. Depois da atualização da policy, reexecutar os jobs com falha do workflow central. Publicar o código sem reaplicar o bootstrap não atualiza a policy existente na AWS. Preservar o state e os recursos já criados para que o Terraform retome a operação.
 
+### Retomada após falha no node group e no EBS CSI
+
+A role de infraestrutura tem `iam:GetRole` sobre o ARN exato `role/aws-service-role/eks-nodegroup.amazonaws.com/AWSServiceRoleForAmazonEKSNodegroup`. A permissão existente sobre `role/fiap-*` não cobre essa role vinculada ao serviço, que o EKS consulta ao criar o node group. A criação automática continua permitida por `iam:CreateServiceLinkedRole`, condicionada a `eks-nodegroup.amazonaws.com`; não é necessário criar a role manualmente. Ver [roles de serviço dos node groups](https://docs.aws.amazon.com/eks/latest/userguide/using-service-linked-roles-eks-nodegroups.html).
+
+Se `CreateNodegroup` falhar por falta de `iam:GetRole`, reaplicar o bootstrap administrativo com os comandos acima. Publicar também a correção de `aws-resources/storage.tf`, que faz o EBS CSI aguardar o módulo EKS, incluindo os nós e o Pod Identity Agent. Depois, iniciar uma nova execução `apply` no workflow central para selecionar o novo SHA de infraestrutura. Reexecutar uma execução anterior conserva o SHA já resolvido e pode usar o código antigo.
+
+O timeout do EBS CSI com estado `DEGRADED` pode ser consequência da ausência de nós. Se persistir após a criação do node group, consultar a causa específica antes de repetir o apply:
+
+```powershell
+aws eks describe-addon --cluster-name fiap-eks-cluster --addon-name aws-ebs-csi-driver --region us-east-1 --query 'addon.{status:status,issues:health.issues}'
+```
+
+Um add-on marcado como tainted pelo apply anterior pode ser recriado no próximo plano, conforme o aviso do provider. Revisar essa substituição; não remover recursos ou editar o state manualmente para contornar a falha.
+
 ## Estados e dependências
 
 aws-resources → database (DB) → kubernetes-addons → kubernetes-configs → messaging → inicialização/migrations/aplicações → api-gateway.
