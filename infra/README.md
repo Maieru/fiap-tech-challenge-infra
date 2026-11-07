@@ -17,6 +17,20 @@ Em uma conta nova, o backend não existe. Em um checkout exclusivo para bootstra
 
 O bucket tem prevent_destroy, force_destroy=false, criptografia, bloqueio público e versionamento. O ciclo operacional não possui escrita no prefixo bootstrap nem permissão de destruição do bucket.
 
+### Retomada após AccessDenied no DB Subnet Group
+
+O módulo VPC de `aws-resources` é responsável pelo `fiap-rds-subnet-group`. Por isso, a policy `fiap-policy-platform-infra` permite consultar, criar, alterar, excluir e gerenciar tags somente desse subnet group. As instâncias e os clusters de banco continuam sob a role de Database. O escopo das ações por ARN de subnet group segue a [referência IAM do Amazon RDS](https://docs.aws.amazon.com/service-authorization/latest/reference/list_rds.html).
+
+Se a execução falhar com `rds:DescribeDBSubnetGroups` negado para a role `fiap-role-github-actions-infra-infra`, atualizar o bootstrap com credenciais administrativas a partir do repositório Infra:
+
+```powershell
+terraform -chdir=infra/bootstrap init
+terraform -chdir=infra/bootstrap plan -out=.terraform/bootstrap.tfplan
+terraform -chdir=infra/bootstrap apply .terraform/bootstrap.tfplan
+```
+
+Revisar o plano antes de aplicar. Depois da atualização da policy, reexecutar os jobs com falha do workflow central. Publicar o código sem reaplicar o bootstrap não atualiza a policy existente na AWS. Preservar o state e os recursos já criados para que o Terraform retome a operação.
+
 ## Estados e dependências
 
 aws-resources → database (DB) → kubernetes-addons → kubernetes-configs → messaging → inicialização/migrations/aplicações → api-gateway.

@@ -87,6 +87,22 @@ resource "aws_iam_policy" "platform_infra" {
         ]
       },
       {
+        "Sid" : "ManageVpcDatabaseSubnetGroup",
+        "Effect" : "Allow",
+        "Action" : [
+          "rds:DescribeDBSubnetGroups",
+          "rds:CreateDBSubnetGroup",
+          "rds:ModifyDBSubnetGroup",
+          "rds:DeleteDBSubnetGroup",
+          "rds:ListTagsForResource",
+          "rds:AddTagsToResource",
+          "rds:RemoveTagsFromResource"
+        ],
+        "Resource" : [
+          "arn:aws:rds:${var.aws_region}:${data.aws_caller_identity.current.account_id}:subgrp:fiap-rds-subnet-group"
+        ]
+      },
+      {
         "Effect" : "Allow",
         "Action" : [
           "ecr:*"
