@@ -18,8 +18,13 @@ resource "kubernetes_storage_class_v1" "kafka" {
   parameters          = { type = "gp3", encrypted = "true", tagSpecification_1 = "Project=fiap-tech-challenge", tagSpecification_2 = "Component=kafka" }
 }
 resource "kubernetes_manifest" "kafka" {
-  for_each   = fileset("${path.module}/../../k8s/messaging", "*.yaml")
-  manifest   = yamldecode(file("${path.module}/../../k8s/messaging/${each.key}"))
+  for_each = fileset("${path.module}/../../k8s/messaging", "*.yaml")
+  manifest = yamldecode(file("${path.module}/../../k8s/messaging/${each.key}"))
+  # O Job controller adiciona labels no Pod template apos a criacao.
+  computed_fields = concat(
+    ["metadata.annotations", "metadata.labels"],
+    each.key == "topics.yaml" ? ["spec.template.metadata.labels"] : []
+  )
   depends_on = [kubernetes_namespace_v1.messaging, kubernetes_storage_class_v1.kafka, kubernetes_config_map_v1.kafka_cluster]
 }
 output "bootstrap_servers" { value = "kafka.fiap-messaging.svc.cluster.local:9092" }
