@@ -9,8 +9,11 @@ esac
 export TF_IN_AUTOMATION=true
 folder="infra/$STAGE"
 terraform -chdir="$folder" init -input=false
-terraform -chdir="$folder" fmt -check
+terraform -chdir="$folder" fmt -check -recursive
 terraform -chdir="$folder" validate -no-color
+case "$STAGE" in
+  kubernetes-addons|kubernetes-configs) terraform -chdir="$folder" test -no-color ;;
+esac
 if [[ "$OPERATION" == destroy ]]; then
   if ! terraform -chdir="$folder" state list >"$RUNNER_TEMP/state-resources" 2>"$RUNNER_TEMP/state-error"; then
     if ! grep -q 'No state file was found' "$RUNNER_TEMP/state-error"; then cat "$RUNNER_TEMP/state-error" >&2; exit 1; fi

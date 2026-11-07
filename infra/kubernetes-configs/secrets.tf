@@ -22,7 +22,7 @@ resource "aws_iam_role" "secret_store" {
   name     = "fiap-eso-${each.key}"
   assume_role_policy = jsonencode({ Version = "2012-10-17", Statement = [{
     Effect = "Allow", Principal = { AWS = data.terraform_remote_state.kubernetes_addons.outputs.external_secrets_role_arn }
-    Action = "sts:AssumeRole"
+    Action = ["sts:AssumeRole", "sts:TagSession"]
   }] })
 }
 resource "aws_iam_role_policy" "secret_store" {

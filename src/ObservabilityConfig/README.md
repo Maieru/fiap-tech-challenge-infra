@@ -132,6 +132,8 @@ Se os pods ficarem Pending, confira os eventos e a capacidade dos nós. Nos valo
 
 Em falha de kubernetes-configs, a Action executa `scripts/platform/diagnose-kubernetes-configs.mjs`: coleta condições dos workloads, ExternalSecrets/SecretStores, eventos e capacidade dos nós. Não imprime specs/env, dados de Secrets ou logs dos agentes. Eventos podem preservar a causa mesmo após o rollback atomic remover os pods do Helm. Para executar manualmente com uma identidade autorizada no cluster, usar `node scripts/platform/diagnose-kubernetes-configs.mjs` após configurar kubectl. Um timeout Helm sozinho não identifica se a causa é sincronização da licença, scheduling, imagem, readiness ou conectividade.
 
+Diagnóstico confirmado em 07/11/2026: SecretStore inválido, ExternalSecret com SecretSyncedError e pods com `secret newrelic-license not found`. CloudTrail mostrou `AccessDenied` em `sts:TagSession` nas seis roles ESO. A correção permite transmitir as tags do Pod Identity na policy do controller e na confiança das roles por namespace, preservando a leitura restrita dos segredos. Publicar Infra e iniciar novo apply completo para atualizar kubernetes-addons e kubernetes-configs; somente repetir o job configs não atualiza a policy de origem. Não requer reaplicar bootstrap.
+
 Na rotação da licença, após sincronizar o ExternalSecret, reinicie também `daemonset/newrelic-bundle-nrk8s-kubelet` e `deployment/newrelic-bundle-nrk8s-ksm`, além do Collector, pois a chave é carregada por variável de ambiente.
 
 Validação local: `terraform validate`, `terraform fmt -check` e renderização `helm template` do chart fixado. Essa validação não comprova conectividade nem ingestão real; essas verificações dependem da aplicação no EKS.

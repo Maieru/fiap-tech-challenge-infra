@@ -49,6 +49,16 @@ Um add-on marcado como tainted pelo apply anterior pode ser recriado no próximo
 
 aws-resources → database (DB: RDS, segredos e TLS MongoDB) → kubernetes-addons → kubernetes-configs → messaging (Kafka/MongoDB) → inicialização/migrations/aplicações → api-gateway.
 
+### External Secrets com InvalidProviderConfig
+
+Se SecretStore ficar `Ready=False/InvalidProviderConfig`, os ExternalSecrets não criam os Secrets locais. No caso de `newrelic-license`, Collector e bundle ficam sem a licença e o Helm pode expirar. Em 07/11/2026, CloudTrail confirmou `AccessDenied` para `sts:TagSession` ao operador assumir todas as roles `fiap-eso-*`.
+
+EKS Pod Identity adiciona [tags de sessão transitivas](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-abac.html). O encadeamento exige `sts:AssumeRole` e `sts:TagSession` tanto na policy do controller (`kubernetes-addons`) quanto na confiança das roles por namespace (`kubernetes-configs`). A permissão fica limitada às seis roles existentes; os ARNs de leitura dos segredos não mudam. O checksum das policies nas anotações dos SecretStores provoca nova reconciliação após atualizar o IAM.
+
+Publicar a correção do Infra e iniciar **novo apply completo** no workflow central, para executar addons antes de configs. Reexecutar somente o job configs da execução antiga não atualiza a policy do controller. Essa correção não exige bootstrap administrativo. O Terraform continua aguardando a licença Ready antes de instalar o New Relic.
+
+Os dois estágios executam testes Terraform de plano com providers simulados e estados fictícios antes do apply/destroy. Eles verificam a cadeia de confiança com tags, o escopo das seis roles, a leitura restrita dos segredos e os nomes DNS do bootstrap, sem criar recursos AWS.
+
 MongoDB substitui DocumentDB e usa replica set rs0 de um membro com autenticação/TLS, Service interno e PVC gp3 criptografado de 20 GiB. A role ESO fiap-eso-mongodb acessa somente o segredo fiap-mongodb-admin criado pelo DB. Reaplicar o bootstrap administrativo antes do primeiro apply dessa versão para autorizar o novo segredo na role Database. Publicar Infra/DB/Execution antes de iniciar uma nova execução central; revisar a remoção do DocumentDB/segredo antigo no plano, sem descartar o state. Não há migração de dados; o destroy remove os PVCs/EBS MongoDB e Kafka antes de retirar EBS CSI.
 
 O node group usa três `c7i-flex.large` x86_64, com 2 vCPUs e 4 GiB por nó. Esse tipo mantém a capacidade prevista originalmente com `t3.medium` e é [elegível ao Free Tier atual](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-free-tier-usage.html). A troca corrige `AsgInstanceLaunchFailures / InvalidParameterCombination` quando a conta restringe o lançamento aos tipos elegíveis. Não reduzir para instâncias micro/small: o Kafka solicita 1536 MiB em um único pod, além da memória necessária para sistema, agentes e demais aplicações.
