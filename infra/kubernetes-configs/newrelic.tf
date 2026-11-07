@@ -16,7 +16,6 @@ resource "helm_release" "newrelic_kubernetes" {
     type  = "string"
   }
 
-  # O ExternalSecret cria a chave no mesmo namespace. O Helm aguarda os pods
-  # ficarem prontos, inclusive a sincronizacao assincrona do Secret.
+  # O ExternalSecret deve estar Ready antes de iniciar a instalacao do Helm.
   depends_on = [kubernetes_manifest.observability_application]
 }

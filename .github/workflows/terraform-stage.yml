@@ -65,3 +65,9 @@ jobs:
         id: stage
         shell: bash
         run: bash scripts/platform/terraform-stage.sh
+      - name: Diagnosticar falha das configuracoes Kubernetes
+        if: failure() && inputs.stage == 'kubernetes-configs'
+        timeout-minutes: 5
+        run: |
+          bash scripts/platform/install-kubectl.sh
+          node scripts/platform/diagnose-kubernetes-configs.mjs

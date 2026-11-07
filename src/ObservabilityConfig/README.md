@@ -61,7 +61,7 @@ A configuração atende aos managed node groups EC2 atuais. Não configura colet
 
 ### Aplicação
 
-Execute o workflow de infraestrutura existente, mantendo a ordem `aws-resources` → `kubernetes-addons` → `kubernetes-configs`. Para um ambiente já provisionado, reaplique `kubernetes-configs` com as mudanças. Não é necessário alterar o backend ou informar outra licença.
+Execute o workflow central, mantendo a ordem `aws-resources` → `kubernetes-addons` → `kubernetes-configs`. O Terraform espera o ExternalSecret `newrelic-license` atingir a condição Ready antes de instalar o bundle, com prazo de cinco minutos para sincronização. O Helm mantém wait/atomic e timeout de dez minutos. Publicar mudanças no Infra e iniciar novo apply central seleciona o novo SHA; não é necessário alterar o backend ou informar outra licença.
 
 Execução local, a partir da raiz de `FiapTechChallengeInfra`, com credenciais AWS do ambiente:
 
@@ -128,7 +128,9 @@ SINCE 1 hour ago TIMESERIES 1 minute LIMIT MAX
 
 Para visão de nós, pods e workloads, use também o Kubernetes Cluster Explorer fornecido pela integração.
 
-Se os pods ficarem Pending, confira `kubectl describe pod` e a capacidade dos nós. Nos valores padrão do chart, o DaemonSet reserva aproximadamente 200m CPU e 300 MB de memória por nó (dois containers); o coletor KSM reserva outros 200m/300 MB no cluster, além do kube-state-metrics configurado com 50m/64Mi. Isso deve ser considerado nos nós t3.small atuais. O modo de menor volume reduz a frequência de envio, não essas reservas.
+Se os pods ficarem Pending, confira os eventos e a capacidade dos nós. Nos valores padrão do chart, o DaemonSet reserva aproximadamente 200m CPU e 300 MB de memória por nó (dois containers); o coletor KSM reserva outros 200m/300 MB no cluster, além do kube-state-metrics configurado com 50m/64Mi. Considerar essas reservas nos três c7i-flex.large atuais, junto dos add-ons e workloads. O modo de menor volume reduz a frequência de envio, não essas reservas.
+
+Em falha de kubernetes-configs, a Action executa `scripts/platform/diagnose-kubernetes-configs.mjs`: coleta condições dos workloads, ExternalSecrets/SecretStores, eventos e capacidade dos nós. Não imprime specs/env, dados de Secrets ou logs dos agentes. Eventos podem preservar a causa mesmo após o rollback atomic remover os pods do Helm. Para executar manualmente com uma identidade autorizada no cluster, usar `node scripts/platform/diagnose-kubernetes-configs.mjs` após configurar kubectl. Um timeout Helm sozinho não identifica se a causa é sincronização da licença, scheduling, imagem, readiness ou conectividade.
 
 Na rotação da licença, após sincronizar o ExternalSecret, reinicie também `daemonset/newrelic-bundle-nrk8s-kubelet` e `deployment/newrelic-bundle-nrk8s-ksm`, além do Collector, pois a chave é carregada por variável de ambiente.
 
