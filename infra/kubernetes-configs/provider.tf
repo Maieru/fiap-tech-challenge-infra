@@ -1,5 +1,6 @@
 terraform {
   required_providers {
+    aws = { source = "hashicorp/aws", version = "6.52.0" }
     helm = {
       source  = "hashicorp/helm"
       version = "~> 2.0"
@@ -49,3 +50,5 @@ provider "helm" {
     }
   }
 }
+
+provider "aws" { region = var.aws_region }

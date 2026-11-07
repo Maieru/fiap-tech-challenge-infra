@@ -1,6 +1,5 @@
 locals {
   github_infra_role_arn = data.terraform_remote_state.bootstrap.outputs.github_actions_infra_role_arn["k8s_infra"]
-  github_app_role_arn   = data.terraform_remote_state.bootstrap.outputs.github_actions_role_arns["app"]
 }
 
 module "eks" {
@@ -15,12 +14,11 @@ module "eks" {
   endpoint_public_access  = true
   endpoint_private_access = true
 
+  enable_irsa                              = false
   enable_cluster_creator_admin_permissions = false
 
   kms_key_administrators = [
-    "arn:aws:iam::575638747623:user/cli-user",
     local.github_infra_role_arn,
-    local.github_app_role_arn
   ]
 
   access_entries = {
@@ -30,33 +28,6 @@ module "eks" {
       policy_associations = {
         cluster_admin = {
           policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-          access_scope = {
-            type = "cluster"
-          }
-        }
-      }
-    },
-    github_actions_app = {
-      principal_arn = local.github_app_role_arn
-
-      policy_associations = {
-        namespace_admin = {
-          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy"
-
-          access_scope = {
-            type       = "namespace"
-            namespaces = ["fiap-backend", "fiap-frontend"]
-          }
-        }
-      }
-    },
-    cli_user = {
-      principal_arn = "arn:aws:iam::575638747623:user/cli-user"
-
-      policy_associations = {
-        cluster_admin = {
-          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-
           access_scope = {
             type = "cluster"
           }
@@ -72,7 +43,8 @@ module "eks" {
     coredns    = {}
     kube-proxy = {}
     vpc-cni = {
-      before_compute = true
+      before_compute       = true
+      configuration_values = jsonencode({ enableNetworkPolicy = "true" })
     }
 
     eks-pod-identity-agent = {
@@ -82,7 +54,7 @@ module "eks" {
 
   eks_managed_node_groups = {
     fiap-node-group = {
-      instance_types = ["t3.small"]
+      instance_types = ["t3.medium"]
 
       min_size     = 1
       max_size     = 4

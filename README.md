@@ -1,63 +1,26 @@
-# FIAP Tech Challenge — Infraestrutura
+# Infraestrutura AWS dos microsserviços
 
-Provisiona a plataforma AWS compartilhada: rede, EKS/ECR, API Gateway, infraestrutura da Lambda, segredos e observabilidade. RDS pertence ao [repositório de banco](https://github.com/Maieru/fiap-tech-challenge-db); aplicação e código da Lambda têm deploys próprios.
+Terraform provisiona VPC, EKS/ECR, IAM, EBS CSI, External Secrets, Kafka, observabilidade e API Gateway. RDS/DocumentDB e seus segredos pertencem ao repositório DB; aplicações mantêm imagens, migrations e workloads. O monólito e o authorizer Lambda não fazem parte do ciclo novo.
 
-## Tecnologias e arquitetura
+A entrada operacional é **Manage AWS microservices platform**, no repositório principal. Ela chama os workflows reutilizáveis deste repositório, com commits explícitos e OIDC do chamador central. Não há execução manual avulsa de provisionamento.
 
-Terraform, AWS, Kubernetes, Helm, GitHub Actions/OIDC, External Secrets e OpenTelemetry/New Relic.
+Consulte o [guia dos estágios e bootstrap](infra/README.md) e o [guia operacional central](https://github.com/Maieru/fiap-tech-challenge/blob/main/docs/operacao/plataforma-aws.md). Antes da primeira ativação, retirar o legado com as versões antigas indicadas no guia; não aplicar declarações novas em estados legados ocupados.
 
-```mermaid
-flowchart LR
-    Actions["GitHub Actions / OIDC"] --> Terraform
-    Terraform --> EKS["EKS, add-ons e Collector"]
-    Terraform --> Gateway["API Gateway"]
-    Terraform --> Lambda["Infraestrutura Lambda"]
-    Terraform --> Rede["VPC, IAM, ECR e segredos"]
-    Gateway -->|"VPC Link"| ALB["ALB interno"]
-    ALB --> EKS
-    Gateway --> Lambda
-    Lambda --> RDS[("RDS no repositório DB")]
-    EKS --> RDS
-    EKS --> NewRelic["New Relic"]
-```
+## Estágios ativos
 
-## Execução e deploy
+| Estágio | Responsabilidade |
+| --- | --- |
+| bootstrap | Backend S3 protegido/versionado, OIDC e roles das pipelines; execução administrativa inicial |
+| aws-resources | Rede, EKS/ECR, Pod Identity, EBS CSI, credencial JWT aleatória e access entries |
+| kubernetes-addons | Controllers, metrics-server e licença New Relic |
+| kubernetes-configs | Namespaces, RBAC, SecretStores/roles por namespace, CAs e observabilidade |
+| messaging | Kafka KRaft, PVC gp3, Service interno, NetworkPolicy e tópicos |
+| api-gateway | HTTPS público, VPC Link e integração com listener ALB recebido por input |
 
-Requer Terraform 1.13.x, AWS CLI autenticada e kubectl. Siga o [guia de infraestrutura](infra/README.md) para o bootstrap inicial, variáveis e comandos de cada estágio. Não há processo de aplicação local ou Dockerfile neste repositório.
+O diretório infra/serverless permanece como referência de retirada do legado, não é um estágio aceito pelo workflow novo. Não deve ser aplicado após a transição.
 
-Após o bootstrap, o ciclo de um estágio é:
+A criação intercala database (DB), inicialização, publicação/deploy das aplicações e Ingresses. Destroy remove tudo em ordem inversa e preserva somente bootstrap/state/roles das pipelines. Dados, EBS e imagens ECR são descartáveis; não há snapshots finais dos bancos.
 
-```powershell
-terraform -chdir=infra/aws-resources init
-terraform -chdir=infra/aws-resources fmt -check
-terraform -chdir=infra/aws-resources validate
-terraform -chdir=infra/aws-resources plan -out=tfplan
-terraform -chdir=infra/aws-resources apply tfplan
-```
+## Verificação local
 
-Forneça as variáveis indicadas no guia e não versione planos, credenciais ou tfvars sensíveis. A primeira implantação intercala o banco e a aplicação:
-
-```text
-bootstrap → aws-resources → database → kubernetes-addons
-→ kubernetes-configs → aplicações/Ingresses → api-gateway → serverless
-```
-
-Depois, o repositório serverless publica o código da Lambda.
-
-## CI/CD
-
-Os [workflows](.github/workflows) executam os estágios por chamada reutilizável ou início manual. Configure `INFRA_ACTION_ROLE`, `jwt_signing_key`, `NEW_RELIC_LICENSE_KEY` e, para acesso privado entre repositórios, `REPOSITORIES_TOKEN`, conforme o workflow utilizado.
-
-O apply é automático após plan. Deploy por branch de homologação/produção e proteção obrigatória de PR ainda precisam ser implementados ou comprovados; veja o [mapa de CI/CD](https://github.com/Maieru/fiap-tech-challenge/blob/main/docs/operacao/ci-cd.md).
-
-## Observabilidade e APIs
-
-Consulte [configuração e validação do New Relic](src/ObservabilityConfig/README.md). Para obter a URL do gateway após provisionamento:
-
-```powershell
-terraform -chdir=infra/api-gateway output -raw api_endpoint
-```
-
-Este repositório não expõe uma API própria. O contrato da aplicação está em [OpenAPI local](http://localhost:8080/openapi/v1.json), com [interface Scalar](http://localhost:8080/scalar/v1), quando executada em Development. O contrato da Lambda está no [README serverless](https://github.com/Maieru/fiap-tech-challenge-serverless#readme).
-
-A infraestrutura atual é um laboratório efêmero. A [documentação central](https://github.com/Maieru/fiap-tech-challenge/blob/main/docs/README.md) contém componentes, sequências, ER, RFCs, ADRs e atendimento à Fase 3.
+Executar terraform fmt -check e, para cada estágio ativo, terraform init -backend=false e terraform validate com TF_DATA_DIR isolado. Essas verificações não acessam o backend nem comprovam IAM, conectividade ou compatibilidade AWS. O fluxo remoto executa preflight regional, gates de persistência e smoke; consultar o guia central para o ensaio completo.
