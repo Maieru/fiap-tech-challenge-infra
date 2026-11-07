@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
+phase=validation
+trap 'exit_code=$?; printf "::error title=Terraform stage failed::stage=%s operation=%s phase=%s line=%s exit=%s\n" "${STAGE:-unset}" "${OPERATION:-unset}" "$phase" "$LINENO" "$exit_code" >&2' ERR
 case "$STAGE:$OPERATION" in
   aws-resources:apply|aws-resources:destroy|kubernetes-addons:apply|kubernetes-addons:destroy|kubernetes-configs:apply|kubernetes-configs:destroy|messaging:apply|messaging:destroy|api-gateway:apply|api-gateway:destroy|database:apply|database:destroy) ;;
   *) echo 'Estagio/operacao nao permitido.' >&2; exit 1 ;;
@@ -12,7 +14,7 @@ terraform -chdir="$folder" init -input=false
 terraform -chdir="$folder" fmt -check -recursive
 terraform -chdir="$folder" validate -no-color
 case "$STAGE" in
-  kubernetes-addons|kubernetes-configs) terraform -chdir="$folder" test -no-color ;;
+  kubernetes-addons|kubernetes-configs|messaging) terraform -chdir="$folder" test -no-color ;;
 esac
 if [[ "$OPERATION" == destroy ]]; then
   if ! terraform -chdir="$folder" state list >"$RUNNER_TEMP/state-resources" 2>"$RUNNER_TEMP/state-error"; then
@@ -62,8 +64,13 @@ plan="$RUNNER_TEMP/$STAGE.tfplan"
 trap 'rm -f "$plan"' EXIT
 args=()
 if [[ "$OPERATION" == destroy ]]; then args+=(-destroy); fi
-terraform -chdir="$folder" plan "${args[@]}" -input=false -lock-timeout=5m -out="$plan"
-terraform -chdir="$folder" apply -input=false -lock-timeout=5m -auto-approve "$plan"
+phase=plan
+printf 'Terraform phase: plan (%s/%s)\n' "$STAGE" "$OPERATION"
+terraform -chdir="$folder" plan "${args[@]}" -no-color -input=false -lock-timeout=5m -out="$plan"
+phase=apply
+printf 'Terraform phase: apply (%s/%s)\n' "$STAGE" "$OPERATION"
+terraform -chdir="$folder" apply -no-color -input=false -lock-timeout=5m -auto-approve "$plan"
+phase=verification
 if [[ "$STAGE:$OPERATION" == messaging:destroy ]]; then
   for volume in "${volumes[@]}"; do aws ec2 wait volume-deleted --volume-ids "$volume"; done
 elif [[ "$STAGE:$OPERATION" == database:destroy ]]; then

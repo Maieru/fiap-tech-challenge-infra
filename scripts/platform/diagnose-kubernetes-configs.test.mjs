@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {summarize} from './diagnose-kubernetes-configs.mjs';
+import {summarize, diagnosticNamespaces} from './diagnose-kubernetes-configs.mjs';
 
 test('diagnostico preserva causa de scheduling sem divulgar env ou Secret', () => {
   const result = summarize({kind:'Pod',metadata:{name:'newrelic-agent'},
@@ -21,4 +21,10 @@ test('eventos continuam identificando falhas depois do rollback Helm', () => {
     message:'0/3 nodes are available',involvedObject:{name:'newrelic-agent'}});
   assert.equal(result.reason,'FailedScheduling');
   assert.equal(result.object,'newrelic-agent');
+});
+
+test('messaging coleta Kafka e MongoDB sem consultar namespaces de aplicacao', () => {
+  assert.deepEqual(diagnosticNamespaces('messaging'),['fiap-messaging','fiap-mongodb']);
+  assert.deepEqual(diagnosticNamespaces('kubernetes-configs'),['fiap-observability']);
+  assert.throws(() => diagnosticNamespaces('database'));
 });
