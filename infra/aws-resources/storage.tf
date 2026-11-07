@@ -25,5 +25,6 @@ resource "aws_eks_addon" "ebs_csi" {
     role_arn        = aws_iam_role.ebs_csi[0].arn
     service_account = "ebs-csi-controller-sa"
   }
-  depends_on = [aws_iam_role_policy_attachment.ebs_csi]
+  # O controller precisa dos nós e do Pod Identity Agent, criados pelo módulo EKS.
+  depends_on = [module.eks, aws_iam_role_policy_attachment.ebs_csi]
 }
