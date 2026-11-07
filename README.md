@@ -46,11 +46,15 @@ Depois, o repositório serverless publica o código da Lambda.
 
 ## CI/CD
 
+A entrega das aplicações possui roles OIDC próprias em `bootstrap/application-delivery.tf`, ECRs/access entries em `aws-resources/application-delivery.tf` e RBAC nos namespaces em `kubernetes-configs/application-delivery.tf`. Prepare os estágios nessa ordem antes de configurar os workflows manuais de cada repositório. Os outputs `application_delivery_role_arns` e `application_ecr_repository_urls` identificam os recursos; veja [recursos compartilhados](k8s/README.md).
+
 Os [workflows](.github/workflows) executam os estágios por chamada reutilizável ou início manual. Configure `INFRA_ACTION_ROLE`, `jwt_signing_key`, `NEW_RELIC_LICENSE_KEY` e, para acesso privado entre repositórios, `REPOSITORIES_TOKEN`, conforme o workflow utilizado.
 
 O apply é automático após plan. Deploy por branch de homologação/produção e proteção obrigatória de PR ainda precisam ser implementados ou comprovados; veja o [mapa de CI/CD](https://github.com/Maieru/fiap-tech-challenge/blob/main/docs/operacao/ci-cd.md).
 
 ## Observabilidade e APIs
+
+Os [recursos Kubernetes compartilhados](k8s/README.md) incluem namespaces e SecretStores de OS, Execution e Billing, descobertos automaticamente pelo estágio `kubernetes-configs`. Cada aplicação mantém seus workloads no próprio repositório. O guia lista os três segredos de banco independentes e as permissões IAM necessárias antes do rollout; não reutilize credenciais do backend legado. O Collector existente recebe OTLP das APIs e exporta ao New Relic; `new_relic_otlp_endpoint` seleciona US/EU no estágio `kubernetes-configs`.
 
 Consulte [configuração e validação do New Relic](src/ObservabilityConfig/README.md). Para obter a URL do gateway após provisionamento:
 

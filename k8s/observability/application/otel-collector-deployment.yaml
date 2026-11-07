@@ -26,7 +26,7 @@ spec:
                   name: newrelic-license
                   key: license-key
             - name: NEW_RELIC_OTLP_ENDPOINT
-              value: https://otlp.nr-data.net
+              value: "${new_relic_otlp_endpoint}"
           ports:
             - { name: otlp-grpc, containerPort: 4317 }
             - { name: otlp-http, containerPort: 4318 }

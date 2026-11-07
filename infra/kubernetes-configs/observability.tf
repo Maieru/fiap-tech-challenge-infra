@@ -7,6 +7,7 @@ locals {
     for manifest_file in local.observability_manifest_files :
     manifest_file => yamldecode(templatefile("${local.observability_manifest_root}/${manifest_file}", {
       observability_config_checksum = local.observability_config_checksum
+      new_relic_otlp_endpoint       = var.new_relic_otlp_endpoint
     }))
   }
 
