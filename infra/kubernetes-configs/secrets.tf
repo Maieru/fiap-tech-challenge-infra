@@ -14,6 +14,7 @@ locals {
     billing        = [data.terraform_remote_state.database.outputs.database_secret_arns.billing, data.terraform_remote_state.aws_resources.outputs.backend_secret_arn]
     observability  = [data.terraform_remote_state.kubernetes_addons.outputs.newrelic_secret_arn]
     data-bootstrap = values(data.terraform_remote_state.database.outputs.database_secret_arns)
+    mongodb        = [data.terraform_remote_state.database.outputs.database_secret_arns.mongodb_admin]
   }
 }
 resource "aws_iam_role" "secret_store" {
@@ -33,12 +34,21 @@ resource "aws_iam_role_policy" "secret_store" {
   }] })
 }
 resource "kubernetes_config_map_v1" "database_ca" {
-  for_each = toset(["fiap-os", "fiap-billing", "fiap-execution", "fiap-data-bootstrap"])
+  for_each = toset(["fiap-os", "fiap-billing", "fiap-data-bootstrap"])
   metadata {
     name      = "aws-database-ca"
     namespace = each.value
   }
   data       = { "global-bundle.pem" = file("${path.module}/../../k8s/certificates/global-bundle.pem") }
+  depends_on = [kubernetes_namespace_v1.from_yaml]
+}
+resource "kubernetes_config_map_v1" "mongodb_ca" {
+  for_each = toset(["fiap-execution", "fiap-data-bootstrap"])
+  metadata {
+    name      = "mongodb-ca"
+    namespace = each.value
+  }
+  data       = { "ca.pem" = data.terraform_remote_state.database.outputs.mongodb_ca_pem }
   depends_on = [kubernetes_namespace_v1.from_yaml]
 }
 resource "kubernetes_manifest" "bootstrap_secrets" {
