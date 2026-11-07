@@ -1,67 +1,150 @@
-name: Terraform stage
+name: Terraform Stage
+
 on:
   workflow_call:
     inputs:
       stage:
-        type: string
+        description: Diretório do estágio Terraform dentro de infra
         required: true
+        type: string
       operation:
+        description: Operação que será planejada e aplicada
+        required: false
         type: string
-        required: true
-      source_sha:
-        type: string
-        required: true
-      role_arn:
-        type: string
-        required: true
+        default: apply
+      create_eks_instance:
+        description: Controla a criação do EKS no estágio aws-resources
+        required: false
+        type: boolean
+        default: true
     secrets:
+      INFRA_ACTION_ROLE:
+        required: true
       NEW_RELIC_LICENSE_KEY:
+        required: false
+      jwt_signing_key:
         required: false
       REPOSITORIES_TOKEN:
         required: false
-    outputs:
-      api_endpoint:
-        value: ${{ jobs.terraform.outputs.api_endpoint }}
-      bootstrap_servers:
-        value: ${{ jobs.terraform.outputs.bootstrap_servers }}
+
+env:
+  TERRAFORM_VERSION: "1.13.0"
+  TF_WORKING_DIR: ./infra/${{ inputs.stage }}
+  AWS_REGION: us-east-1
+  TF_IN_AUTOMATION: true
+
 permissions:
-  contents: read
-  actions: read
   id-token: write
+  contents: read
+
 jobs:
-  terraform:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 90
-    if: github.repository == 'Maieru/fiap-tech-challenge' && github.ref == 'refs/heads/main'
-    outputs:
-      api_endpoint: ${{ steps.stage.outputs.api_endpoint }}
-      bootstrap_servers: ${{ steps.stage.outputs.bootstrap_servers }}
-    env:
-      AWS_REGION: us-east-1
-      STAGE: ${{ inputs.stage }}
-      OPERATION: ${{ inputs.operation }}
-      SOURCE_SHA: ${{ inputs.source_sha }}
-      TF_VAR_new_relic_license_key: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
+  terraform-plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Checkout da infraestrutura
+        uses: actions/checkout@v4
         with:
           repository: Maieru/fiap-tech-challenge-infra
-          ref: ${{ inputs.source_sha }}
           token: ${{ secrets.REPOSITORIES_TOKEN || github.token }}
-          persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+
+      - name: Configurar credenciais AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          node-version: 22
-      - name: Autenticar AWS via OIDC
-        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.INFRA_ACTION_ROLE }}
+
+      - name: Configurar Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
-          role-to-assume: ${{ inputs.role_arn }}
-          aws-region: us-east-1
-      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        if: inputs.operation == 'apply'
+        env:
+          TF_VAR_new_relic_license_key: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
+          TF_VAR_jwt_signing_key: ${{ secrets.jwt_signing_key }}
+          TF_VAR_create_eks_instance: ${{ inputs.create_eks_instance }}
+        run: terraform plan -input=false -out=tfplan
+
+      - name: Terraform Destroy Plan
+        if: inputs.operation == 'destroy'
+        env:
+          TF_VAR_new_relic_license_key: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
+          TF_VAR_jwt_signing_key: ${{ secrets.jwt_signing_key }}
+        run: terraform plan -destroy -input=false -out=tfplan
+
+      - name: Salvar plano como artifact
+        uses: actions/upload-artifact@v4
         with:
-          terraform_version: 1.13.0
-          terraform_wrapper: false
-      - name: Validar, planejar e aplicar no mesmo runner
-        id: stage
-        shell: bash
-        run: bash scripts/platform/terraform-stage.sh
+          name: terraform-plan-${{ inputs.stage }}
+          path: ${{ env.TF_WORKING_DIR }}/tfplan
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Salvar pacote bootstrap da Lambda
+        if: inputs.stage == 'serverless' && inputs.operation == 'apply'
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-bootstrap-${{ inputs.stage }}
+          path: ${{ env.TF_WORKING_DIR }}/bootstrap.zip
+          if-no-files-found: error
+          retention-days: 1
+
+  terraform-apply:
+    name: Apply
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    defaults:
+      run:
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+    steps:
+      - name: Checkout da infraestrutura
+        uses: actions/checkout@v4
+        with:
+          repository: Maieru/fiap-tech-challenge-infra
+          token: ${{ secrets.REPOSITORIES_TOKEN || github.token }}
+
+      - name: Configurar credenciais AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.INFRA_ACTION_ROLE }}
+
+      - name: Configurar Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Baixar plano aprovado
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-${{ inputs.stage }}
+          path: ${{ env.TF_WORKING_DIR }}
+
+      - name: Baixar pacote bootstrap da Lambda
+        if: inputs.stage == 'serverless' && inputs.operation == 'apply'
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-bootstrap-${{ inputs.stage }}
+          path: ${{ env.TF_WORKING_DIR }}
+
+      - name: Terraform Apply
+        run: terraform apply -input=false -no-color -auto-approve tfplan

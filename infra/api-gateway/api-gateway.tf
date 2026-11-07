@@ -1,3 +1,12 @@
+data "aws_lb" "internal_edge" {
+  name = "fiap-internal-edge"
+}
+
+data "aws_lb_listener" "http" {
+  load_balancer_arn = data.aws_lb.internal_edge.arn
+  port              = 80
+}
+
 resource "aws_apigatewayv2_vpc_link" "main" {
   name = "fiap-api-gateway-vpc-link"
 
@@ -25,7 +34,7 @@ resource "aws_apigatewayv2_integration" "internal_alb" {
 
   integration_type       = "HTTP_PROXY"
   integration_method     = "ANY"
-  integration_uri        = var.internal_alb_listener_arn
+  integration_uri        = data.aws_lb_listener.http.arn
   connection_type        = "VPC_LINK"
   connection_id          = aws_apigatewayv2_vpc_link.main.id
   payload_format_version = "1.0"

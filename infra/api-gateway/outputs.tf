@@ -23,4 +23,7 @@ output "vpc_link_id" {
   value       = aws_apigatewayv2_vpc_link.main.id
 }
 
-output "internal_alb_listener_arn" { value = var.internal_alb_listener_arn }
+output "internal_alb_arn" {
+  description = "ARN do ALB interno criado pelo AWS Load Balancer Controller"
+  value       = data.aws_lb.internal_edge.arn
+}

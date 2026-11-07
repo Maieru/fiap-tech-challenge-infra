@@ -34,18 +34,28 @@ resource "aws_iam_role" "external_secrets" {
   })
 }
 
-data "aws_caller_identity" "current" {}
 resource "aws_iam_role_policy" "external_secrets" {
   name = "fiap-policy-external-secrets"
   role = aws_iam_role.external_secrets.id
-  policy = jsonencode({ Version = "2012-10-17", Statement = [{
-    Effect = "Allow", Action = ["sts:AssumeRole"]
-    Resource = [for name in ["os", "execution", "billing", "observability", "data-bootstrap"] :
-    "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/fiap-eso-${name}"]
-  }] })
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          data.terraform_remote_state.aws_resources.outputs.backend_secret_arn,
+          data.terraform_remote_state.database.outputs.database_credentials_secret_arn,
+          aws_secretsmanager_secret.newrelic_license.arn
+        ]
+      }
+    ]
+  })
 }
-output "external_secrets_role_arn" { value = aws_iam_role.external_secrets.arn }
-output "newrelic_secret_arn" { value = aws_secretsmanager_secret.newrelic_license.arn }
 
 resource "aws_eks_pod_identity_association" "external_secrets" {
   cluster_name    = data.terraform_remote_state.aws_resources.outputs.eks.name

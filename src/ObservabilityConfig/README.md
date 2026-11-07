@@ -1,6 +1,6 @@
 # Observabilidade com New Relic
 
-OS, Execution e Billing (.NET) e frontend (browser via proxy Nginx `/otlp`) enviam telemetria ao Collector compartilhado. As APIs usam `oficina-os`, `oficina-execution` e `oficina-billing`, com traces, métricas e logs via OTLP gRPC em HTTP 4317; o frontend usa `fiap-tech-challenge-frontend`, com traces e logs via OTLP/HTTP em 4318. O Collector exporta os três sinais por OTLP/HTTP com TLS para o New Relic. `fiap-tech-challenge-backend` identifica o monólito histórico.
+Backend (.NET) e frontend (browser via proxy Nginx `/otlp`) enviam telemetria ao OpenTelemetry Collector. O Collector exporta traces, métricas e logs por OTLP/HTTP com TLS para o New Relic. A instrumentação existente e os nomes `fiap-tech-challenge-backend` e `fiap-tech-challenge-frontend` são preservados; o frontend emite traces e logs, e o backend também emite métricas.
 
 ## Ambiente local
 
@@ -18,7 +18,7 @@ A configuração remota de laboratório está no repositório `FiapTechChallenge
 
 1. Configure o GitHub Actions secret `NEW_RELIC_LICENSE_KEY` com a chave de ingestão no repositório que dispara o workflow (`FiapTechChallengeFase1` para o orquestrador; `FiapTechChallengeInfra` para execução direta). Os workflows de aplicação e destruição repassam esse secret ao Terraform.
 2. Aplique o estágio `infra/kubernetes-addons`. O Terraform cria o secret `fiap-newrelic-license` e sua versão com o JSON `{"license-key":"..."}` a partir da variável sensível e obrigatória `new_relic_license_key`. Para execução local, forneça `TF_VAR_new_relic_license_key` no ambiente antes de executar `terraform plan`/`apply` (também no `destroy`). Não é necessário cadastrar o valor manualmente no AWS Secrets Manager.
-3. Se sua conta for EU, configure `new_relic_otlp_endpoint = "https://otlp.eu01.nr-data.net"` no tfvars usado por `kubernetes-configs`, ou `TF_VAR_new_relic_otlp_endpoint` no ambiente. O padrão é `https://otlp.nr-data.net` (US). A variável aceita somente esses endpoints HTTPS. O Deployment é um template renderizado pelo Terraform, não um YAML para aplicação direta.
+3. Se sua conta for EU, ajuste `NEW_RELIC_OTLP_ENDPOINT` em `k8s/observability/application/otel-collector-deployment.yaml` antes do deploy.
 4. Aplique `infra/kubernetes-configs` e faça o deploy atualizado das aplicações. O ExternalSecret cria `newrelic-license` no namespace `fiap-observability`; o Collector lê a chave via `secretKeyRef`. Sem o valor no Secrets Manager, o Collector aguardará o Secret e não iniciará.
 5. Verifique `kubectl -n fiap-observability get externalsecret newrelic-license` e `kubectl -n fiap-observability rollout status deployment/otel-collector`.
 
@@ -33,7 +33,7 @@ Procure os serviços pelo nome na interface de entidades/APM e consulte no Query
 ```sql
 FROM Span SELECT count(*) FACET service.name SINCE 30 minutes ago
 FROM Log SELECT count(*) FACET service.name SINCE 30 minutes ago
-FROM Metric SELECT uniques(metricName) WHERE service.name IN ('oficina-os', 'oficina-execution', 'oficina-billing') FACET service.name SINCE 30 minutes ago
+FROM Metric SELECT uniques(metricName) WHERE service.name = 'fiap-tech-challenge-backend' SINCE 30 minutes ago
 ```
 
 Para diagnóstico, use `docker compose logs otel-collector` ou `kubectl -n fiap-observability logs deployment/otel-collector`. Erros 401/403 indicam problema de chave/conta; confira também região e saída HTTPS na porta 443. O Collector usa lotes de até 256 registros, gzip, limite de memória e retentativas. A fila é em memória: reinícios podem perder dados pendentes. Se receber 413, reduza o lote ou o tamanho dos registros (o limite de ingestão é por bytes).
@@ -99,7 +99,7 @@ CPU por container (millicores; 1000 mCPU = 1 core):
 FROM K8sContainerSample
 SELECT average(cpuUsedCores) * 1000 AS 'CPU (mCPU)'
 WHERE clusterName = 'SEU_CLUSTER_EKS'
-  AND namespaceName IN ('fiap-os', 'fiap-execution', 'fiap-billing', 'fiap-frontend')
+  AND namespaceName IN ('fiap-backend', 'fiap-frontend')
 FACET namespaceName, podName, containerName
 SINCE 1 hour ago TIMESERIES 1 minute LIMIT MAX
 ```
@@ -110,7 +110,7 @@ Memória por container (working set em MiB):
 FROM K8sContainerSample
 SELECT average(memoryWorkingSetBytes) / 1048576 AS 'Memória (MiB)'
 WHERE clusterName = 'SEU_CLUSTER_EKS'
-  AND namespaceName IN ('fiap-os', 'fiap-execution', 'fiap-billing', 'fiap-frontend')
+  AND namespaceName IN ('fiap-backend', 'fiap-frontend')
 FACET namespaceName, podName, containerName
 SINCE 1 hour ago TIMESERIES 1 minute LIMIT MAX
 ```
@@ -121,7 +121,7 @@ Memória relativa ao limite configurado, para containers com limite:
 FROM K8sContainerSample
 SELECT average(memoryWorkingSetUtilization) AS 'Memória (% do limite)'
 WHERE clusterName = 'SEU_CLUSTER_EKS' AND memoryLimitBytes > 0
-  AND namespaceName IN ('fiap-os', 'fiap-execution', 'fiap-billing', 'fiap-frontend')
+  AND namespaceName IN ('fiap-backend', 'fiap-frontend')
 FACET namespaceName, podName, containerName
 SINCE 1 hour ago TIMESERIES 1 minute LIMIT MAX
 ```

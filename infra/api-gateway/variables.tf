@@ -14,5 +14,3 @@ variable "throttling_burst_limit" {
   type        = number
   default     = 200
 }
-
-variable "internal_alb_listener_arn" { type = string }
