@@ -15,6 +15,10 @@ on:
         type: string
         required: true
     secrets:
+      MERCADO_PAGO_ACCESS_TOKEN:
+        required: false
+      MERCADO_PAGO_WEBHOOK_SECRET:
+        required: false
       NEW_RELIC_LICENSE_KEY:
         required: false
       REPOSITORIES_TOKEN:
@@ -61,10 +65,22 @@ jobs:
         with:
           terraform_version: 1.13.0
           terraform_wrapper: false
+      - name: Exigir credenciais Mercado Pago antes do apply
+        if: inputs.stage == 'aws-resources' && inputs.operation == 'apply'
+        env:
+          MERCADO_PAGO_ACCESS_TOKEN: ${{ secrets.MERCADO_PAGO_ACCESS_TOKEN }}
+          MERCADO_PAGO_WEBHOOK_SECRET: ${{ secrets.MERCADO_PAGO_WEBHOOK_SECRET }}
+        run: node scripts/platform/sync-mercado-pago-secret.mjs --validate
       - name: Validar, planejar e aplicar no mesmo runner
         id: stage
         shell: bash
         run: bash scripts/platform/terraform-stage.sh
+      - name: Sincronizar Mercado Pago no Secrets Manager
+        if: inputs.stage == 'aws-resources' && inputs.operation == 'apply'
+        env:
+          MERCADO_PAGO_ACCESS_TOKEN: ${{ secrets.MERCADO_PAGO_ACCESS_TOKEN }}
+          MERCADO_PAGO_WEBHOOK_SECRET: ${{ secrets.MERCADO_PAGO_WEBHOOK_SECRET }}
+        run: node scripts/platform/sync-mercado-pago-secret.mjs
       - name: Diagnosticar falha do estagio Kubernetes
         if: failure() && (inputs.stage == 'kubernetes-configs' || inputs.stage == 'messaging')
         timeout-minutes: 5

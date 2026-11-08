@@ -11,7 +11,7 @@ locals {
   secret_access = {
     os             = [data.terraform_remote_state.database.outputs.database_secret_arns.os, data.terraform_remote_state.aws_resources.outputs.backend_secret_arn]
     execution      = [data.terraform_remote_state.database.outputs.database_secret_arns.execution, data.terraform_remote_state.aws_resources.outputs.backend_secret_arn]
-    billing        = [data.terraform_remote_state.database.outputs.database_secret_arns.billing, data.terraform_remote_state.aws_resources.outputs.backend_secret_arn]
+    billing        = [data.terraform_remote_state.database.outputs.database_secret_arns.billing, data.terraform_remote_state.aws_resources.outputs.backend_secret_arn, data.terraform_remote_state.aws_resources.outputs.mercado_pago_secret_arn]
     observability  = [data.terraform_remote_state.kubernetes_addons.outputs.newrelic_secret_arn]
     data-bootstrap = values(data.terraform_remote_state.database.outputs.database_secret_arns)
     mongodb        = [data.terraform_remote_state.database.outputs.database_secret_arns.mongodb_admin]

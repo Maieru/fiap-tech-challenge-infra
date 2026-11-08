@@ -118,7 +118,8 @@ resource "aws_iam_policy" "platform_infra" {
         ],
         "Resource" : [
           "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:fiap-secret-manager-jwt-signing-key-*",
-          "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:fiap-newrelic-license-*"
+          "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:fiap-newrelic-license-*",
+          "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:fiap-billing-mercadopago-credentials-*"
         ]
       },
       {
