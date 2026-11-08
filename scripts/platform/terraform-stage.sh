@@ -56,7 +56,11 @@ if [[ "$STAGE:$OPERATION" == messaging:destroy ]]; then
     claims=$(kubectl -n "$namespace" get pvc -o jsonpath='{range .items[*]}{.spec.volumeName}{"\n"}{end}')
     while IFS= read -r pv; do
       [[ -n "$pv" ]] || continue
-      volumes+=("$(kubectl get pv "$pv" -o jsonpath='{.spec.csi.volumeHandle}')")
+      volume=$(kubectl get pv "$pv" -o jsonpath='{.spec.csi.volumeHandle}')
+      [[ "$volume" =~ ^vol-[a-f0-9]+$ ]] || { echo "Volume EBS invalido no PV $pv." >&2; exit 1; }
+      volumes+=("$volume")
+      # O laboratorio descarta os dados, inclusive PVCs de versoes com reclaim Retain.
+      kubectl patch pv "$pv" --type=merge -p '{"spec":{"persistentVolumeReclaimPolicy":"Delete"}}'
     done <<< "$claims"
   done
 fi
@@ -72,6 +76,12 @@ printf 'Terraform phase: apply (%s/%s)\n' "$STAGE" "$OPERATION"
 terraform -chdir="$folder" apply -no-color -input=false -lock-timeout=5m -auto-approve "$plan"
 phase=verification
 if [[ "$STAGE:$OPERATION" == messaging:destroy ]]; then
+  for namespace in fiap-messaging fiap-mongodb; do
+    namespace_exists=$(kubectl get namespace "$namespace" --ignore-not-found=true -o name)
+    if [[ -n "$namespace_exists" ]]; then
+      kubectl -n "$namespace" delete pvc --all --ignore-not-found=true --wait=true --timeout=10m
+    fi
+  done
   for volume in "${volumes[@]}"; do aws ec2 wait volume-deleted --volume-ids "$volume"; done
 elif [[ "$STAGE:$OPERATION" == database:destroy ]]; then
   node scripts/platform/verify-databases-deleted.mjs

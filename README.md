@@ -21,6 +21,8 @@ O diretório infra/serverless permanece como referência de retirada do legado, 
 
 A criação intercala database (DB), inicialização, publicação/deploy das aplicações e Ingresses. Destroy remove tudo em ordem inversa e preserva somente bootstrap/state/roles das pipelines. Dados, EBS e imagens ECR são descartáveis; não há snapshots finais dos bancos.
 
+No Manage AWS, o destroy remove aplicações → messaging (MongoDB/Kafka e discos) → database (RDS e inventário dos dados) → configurações → add-ons → core. Em messaging, o script ajusta reclaim dos PVs vinculados a PVCs dos namespaces `fiap-mongodb`/`fiap-messaging` para Delete, exclui PVCs restantes após o Terraform e aguarda a exclusão EBS. O estágio DB bloqueia a retirada dos controllers se ainda encontrar bancos ou discos do projeto. `terraform-destroy.test.mjs` exercita esse script com comandos simulados, incluindo falhas e rejeição de volume inválido, sem executar AWS.
+
 ## Verificação local
 
 Executar terraform fmt -check e, para cada estágio ativo, terraform init -backend=false e terraform validate com TF_DATA_DIR isolado. Essas verificações não acessam o backend nem comprovam IAM, conectividade ou compatibilidade AWS. O fluxo remoto executa preflight regional, gates de persistência e smoke; consultar o guia central para o ensaio completo.
