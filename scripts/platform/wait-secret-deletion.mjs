@@ -1,6 +1,6 @@
 import {execFileSync} from 'node:child_process';
 const names={
-  'aws-resources':['fiap-secret-manager-jwt-signing-key'],
+  'aws-resources':['fiap-secret-manager-jwt-signing-key','fiap-billing-mercadopago-credentials'],
   'kubernetes-addons':['fiap-newrelic-license'],
   database:['fiap-os-database-credentials','fiap-billing-database-credentials','fiap-execution-database-credentials','fiap-postgres-admin','fiap-mongodb-admin','fiap-documentdb-admin']
 }[process.env.STAGE]||[];

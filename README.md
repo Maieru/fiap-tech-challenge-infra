@@ -24,3 +24,7 @@ A criação intercala database (DB), inicialização, publicação/deploy das ap
 ## Verificação local
 
 Executar terraform fmt -check e, para cada estágio ativo, terraform init -backend=false e terraform validate com TF_DATA_DIR isolado. Essas verificações não acessam o backend nem comprovam IAM, conectividade ou compatibilidade AWS. O fluxo remoto executa preflight regional, gates de persistência e smoke; consultar o guia central para o ensaio completo.
+
+## Credenciais Mercado Pago
+
+O estágio `aws-resources` cria `fiap-billing-mercadopago-credentials` e expõe `mercado_pago_secret_arn`. O workflow reutilizável recebe `MERCADO_PAGO_ACCESS_TOKEN` e `MERCADO_PAGO_WEBHOOK_SECRET` do orquestrador principal e grava os valores via `scripts/platform/sync-mercado-pago-secret.mjs` após apply. Os valores não são variáveis nem recursos `secret_version` Terraform. A role OIDC de infraestrutura gerencia o segredo, e somente o SecretStore Billing recebe acesso de leitura. O bootstrap IAM precisa ser atualizado antes do primeiro apply com essa integração. O destroy inclui a espera de exclusão do novo segredo e não exige essas credenciais.

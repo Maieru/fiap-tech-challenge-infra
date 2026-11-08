@@ -5,8 +5,9 @@ mock_provider "kubernetes" {}
 override_data {
   target = data.terraform_remote_state.aws_resources
   values = { outputs = {
-    eks                = { name = "fiap-eks-cluster", endpoint = "https://eks.invalid", ca = "dGVzdA==" }
-    backend_secret_arn = "arn:aws:secretsmanager:us-east-1:575638747623:secret:fiap-secret-manager-jwt-signing-key-test01"
+    eks                     = { name = "fiap-eks-cluster", endpoint = "https://eks.invalid", ca = "dGVzdA==" }
+    backend_secret_arn      = "arn:aws:secretsmanager:us-east-1:575638747623:secret:fiap-secret-manager-jwt-signing-key-test01"
+    mercado_pago_secret_arn = "arn:aws:secretsmanager:us-east-1:575638747623:secret:fiap-billing-mercadopago-credentials-test01"
   } }
 }
 override_data {
@@ -46,6 +47,12 @@ run "namespace_trust_accepts_tags_without_expanding_principal_or_secret_access" 
       !contains(jsondecode(policy.policy).Statement[0].Resource, "*")
     ])
     error_message = "A permissao de tags nao deve ampliar a leitura dos segredos."
+  }
+  assert {
+    condition = alltrue([for name, resources in local.secret_access :
+      contains(resources, data.terraform_remote_state.aws_resources.outputs.mercado_pago_secret_arn) == (name == "billing")
+    ])
+    error_message = "Somente o namespace Billing pode ler a credencial Mercado Pago."
   }
   assert {
     condition = alltrue([for secret in kubernetes_manifest.bootstrap_secrets :
