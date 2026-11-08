@@ -68,6 +68,10 @@ plan="$RUNNER_TEMP/$STAGE.tfplan"
 trap 'rm -f "$plan"' EXIT
 args=()
 if [[ "$OPERATION" == destroy ]]; then args+=(-destroy); fi
+if [[ "$STAGE" == kubernetes-configs ]]; then
+  if [[ "$OPERATION" == destroy ]]; then args+=(-var=destroy_mode=true);
+  else args+=(-var=destroy_mode=false); fi
+fi
 phase=plan
 printf 'Terraform phase: plan (%s/%s)\n' "$STAGE" "$OPERATION"
 terraform -chdir="$folder" plan "${args[@]}" -no-color -input=false -lock-timeout=5m -out="$plan"

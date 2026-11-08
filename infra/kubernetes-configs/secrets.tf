@@ -1,4 +1,5 @@
 data "terraform_remote_state" "database" {
+  count   = var.destroy_mode ? 0 : 1
   backend = "s3"
   config  = { bucket = "fiap-s3-terraform-backend", key = "terraform/database/terraform.tfstate", region = var.aws_region }
 }
@@ -8,13 +9,15 @@ data "terraform_remote_state" "kubernetes_addons" {
 }
 
 locals {
+  database_secret_arns = var.destroy_mode ? tomap({}) : tomap(data.terraform_remote_state.database[0].outputs.database_secret_arns)
+  mongodb_ca_pem       = var.destroy_mode ? "" : data.terraform_remote_state.database[0].outputs.mongodb_ca_pem
   secret_access = {
-    os             = [data.terraform_remote_state.database.outputs.database_secret_arns.os, data.terraform_remote_state.aws_resources.outputs.backend_secret_arn]
-    execution      = [data.terraform_remote_state.database.outputs.database_secret_arns.execution, data.terraform_remote_state.aws_resources.outputs.backend_secret_arn]
-    billing        = [data.terraform_remote_state.database.outputs.database_secret_arns.billing, data.terraform_remote_state.aws_resources.outputs.backend_secret_arn, data.terraform_remote_state.aws_resources.outputs.mercado_pago_secret_arn]
+    os             = concat(var.destroy_mode ? [] : [local.database_secret_arns.os], [data.terraform_remote_state.aws_resources.outputs.backend_secret_arn])
+    execution      = concat(var.destroy_mode ? [] : [local.database_secret_arns.execution], [data.terraform_remote_state.aws_resources.outputs.backend_secret_arn])
+    billing        = concat(var.destroy_mode ? [] : [local.database_secret_arns.billing], [data.terraform_remote_state.aws_resources.outputs.backend_secret_arn, data.terraform_remote_state.aws_resources.outputs.mercado_pago_secret_arn])
     observability  = [data.terraform_remote_state.kubernetes_addons.outputs.newrelic_secret_arn]
-    data-bootstrap = values(data.terraform_remote_state.database.outputs.database_secret_arns)
-    mongodb        = [data.terraform_remote_state.database.outputs.database_secret_arns.mongodb_admin]
+    data-bootstrap = values(local.database_secret_arns)
+    mongodb        = var.destroy_mode ? [] : [local.database_secret_arns.mongodb_admin]
   }
 }
 resource "aws_iam_role" "secret_store" {
@@ -48,11 +51,11 @@ resource "kubernetes_config_map_v1" "mongodb_ca" {
     name      = "mongodb-ca"
     namespace = each.value
   }
-  data       = { "ca.pem" = data.terraform_remote_state.database.outputs.mongodb_ca_pem }
+  data       = { "ca.pem" = local.mongodb_ca_pem }
   depends_on = [kubernetes_namespace_v1.from_yaml]
 }
 resource "kubernetes_manifest" "bootstrap_secrets" {
-  for_each = data.terraform_remote_state.database.outputs.database_secret_arns
+  for_each = local.database_secret_arns
   manifest = {
     apiVersion = "external-secrets.io/v1", kind = "ExternalSecret"
     metadata   = { name = "database-${replace(each.key, "_", "-")}", namespace = "fiap-data-bootstrap" }

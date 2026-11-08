@@ -21,7 +21,9 @@ O diretório infra/serverless permanece como referência de retirada do legado, 
 
 A criação intercala database (DB), inicialização, publicação/deploy das aplicações e Ingresses. Destroy remove tudo em ordem inversa e preserva somente bootstrap/state/roles das pipelines. Dados, EBS e imagens ECR são descartáveis; não há snapshots finais dos bancos.
 
-No Manage AWS, o destroy remove aplicações → messaging (MongoDB/Kafka e discos) → database (RDS e inventário dos dados) → configurações → add-ons → core. Em messaging, o script ajusta reclaim dos PVs vinculados a PVCs dos namespaces `fiap-mongodb`/`fiap-messaging` para Delete, exclui PVCs restantes após o Terraform e aguarda a exclusão EBS. O estágio DB bloqueia a retirada dos controllers se ainda encontrar bancos ou discos do projeto. `terraform-destroy.test.mjs` exercita esse script com comandos simulados, incluindo falhas e rejeição de volume inválido, sem executar AWS.
+No Manage AWS, o destroy remove aplicações → messaging (MongoDB/Kafka e discos) → configurações → database (RDS e inventário dos dados) → add-ons → core. Configurações consome outputs database e deve ser destruído antes de esvaziá-los. Em messaging, o script ajusta reclaim dos PVs vinculados a PVCs dos namespaces `fiap-mongodb`/`fiap-messaging` para Delete, exclui PVCs restantes após o Terraform e aguarda a exclusão EBS. O estágio DB bloqueia a retirada dos controllers se ainda encontrar bancos ou discos do projeto. `terraform-destroy.test.mjs` exercita esse script com comandos simulados, incluindo falhas e rejeição de volume inválido, sem executar AWS.
+
+Se database já foi destruído em uma execução interrompida, publicar Infra antes do principal e iniciar novo destroy. O runner usa `destroy_mode=true` somente no plano `-destroy` de kubernetes-configs; a recuperação remove a consulta ao state database já vazio. No apply, o runner força false e mantém os outputs obrigatórios. A remoção usa o plano salvo e os recursos registrados no state de configurações. Os testes Terraform verificam o caminho normal e a recuperação com providers simulados.
 
 ## Verificação local
 
