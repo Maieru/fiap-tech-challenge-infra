@@ -9,7 +9,7 @@ import {fileURLToPath} from 'node:url';
 const bash = process.platform === 'win32' ? join(process.env.ProgramFiles, 'Git/bin/bash.exe') : 'bash';
 const shellPath = path => process.platform === 'win32' ? path.replaceAll('\\', '/').replace(/^([A-Za-z]):/, (_, drive) => '/' + drive.toLowerCase()) : path;
 
-function destroy({failCleanup = false, invalidVolume = false} = {}) {
+function destroy({failCleanup = false, invalidVolume = false, stage = 'messaging', operation = 'destroy'} = {}) {
   const prefix = join(tmpdir(), 'fiap-destroy-test-');
   const directory = mkdtempSync(prefix);
   assert.ok(directory.startsWith(prefix));
@@ -37,7 +37,7 @@ function destroy({failCleanup = false, invalidVolume = false} = {}) {
     const result = spawnSync(bash, ['-c', 'export PATH="$STUB_BIN:$PATH"; exec /bin/bash "$STAGE_SCRIPT"'], {
       encoding:'utf8', env:{...process.env, STUB_BIN:shellPath(bin), CALL_LOG:shellPath(log),
         STAGE_SCRIPT:shellPath(fileURLToPath(new URL('./terraform-stage.sh', import.meta.url))),
-        STAGE:'messaging', OPERATION:'destroy', SOURCE_SHA:'0'.repeat(40),
+        STAGE:stage, OPERATION:operation, SOURCE_SHA:'0'.repeat(40),
         RUNNER_TEMP:shellPath(directory), GITHUB_STEP_SUMMARY:shellPath(join(directory, 'summary'))}
     });
     return {...result, calls:readFileSync(log, 'utf8').trim().split(/\r?\n/)};
@@ -75,3 +75,16 @@ test('volume desconhecido impede alteracao de reclaim e o plano destrutivo', () 
   assert.ok(!result.calls.some(call => call.startsWith('kubectl patch')));
   assert.ok(!result.calls.some(call => call.startsWith('terraform ') && call.includes(' plan ')));
 });
+
+for (const operation of ['apply', 'destroy']) {
+  test(`kubernetes-configs ${operation} seleciona recuperacao apenas no plano destrutivo`, () => {
+    const result = destroy({stage:'kubernetes-configs', operation});
+    assert.equal(result.status, 0, result.stderr);
+    const plan = result.calls.find(call => call.startsWith('terraform ') && call.includes(' plan '));
+    assert.ok(plan);
+    assert.match(plan, new RegExp('-var=destroy_mode=' + (operation === 'destroy')));
+    assert.equal(plan.includes(' -destroy '), operation === 'destroy');
+    const apply = result.calls.find(call => call.startsWith('terraform ') && call.includes(' apply '));
+    assert.doesNotMatch(apply, /-var=/); // O apply usa somente o plano salvo.
+  });
+}

@@ -18,7 +18,7 @@ override_data {
   } }
 }
 override_data {
-  target = data.terraform_remote_state.database
+  target = data.terraform_remote_state.database[0]
   values = { outputs = {
     mongodb_ca_pem = "test-public-ca"
     database_secret_arns = {
@@ -33,6 +33,13 @@ override_data {
 
 run "namespace_trust_accepts_tags_without_expanding_principal_or_secret_access" {
   command = plan
+  variables {
+    destroy_mode = false
+  }
+  assert {
+    condition     = length(data.terraform_remote_state.database) == 1 && length(local.database_secret_arns) == 5 && local.mongodb_ca_pem == "test-public-ca"
+    error_message = "O apply deve continuar lendo os ARNs e a CA do state database."
+  }
   assert {
     condition = alltrue([for role in aws_iam_role.secret_store :
       toset(jsondecode(role.assume_role_policy).Statement[0].Action) == toset(["sts:AssumeRole", "sts:TagSession"]) &&
@@ -60,5 +67,20 @@ run "namespace_trust_accepts_tags_without_expanding_principal_or_secret_access" 
       secret.manifest.metadata.name == secret.manifest.spec.target.name
     ])
     error_message = "ExternalSecret e Secret de bootstrap devem usar o mesmo nome DNS valido."
+  }
+}
+
+run "destroy_recovers_without_reading_database_state_or_outputs" {
+  command = plan
+  variables {
+    destroy_mode = true
+  }
+  assert {
+    condition     = length(data.terraform_remote_state.database) == 0 && length(local.database_secret_arns) == 0 && local.mongodb_ca_pem == ""
+    error_message = "A recuperacao do destroy nao pode consultar o state database ja vazio."
+  }
+  assert {
+    condition     = length(kubernetes_manifest.bootstrap_secrets) == 0 && length(local.secret_access.mongodb) == 0 && length(local.secret_access["data-bootstrap"]) == 0
+    error_message = "O destroy nao deve inventar ARNs ou recriar secrets dos bancos excluidos."
   }
 }

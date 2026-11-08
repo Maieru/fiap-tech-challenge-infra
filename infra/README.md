@@ -59,6 +59,8 @@ Publicar a correção do Infra e iniciar **novo apply completo** no workflow cen
 
 Os dois estágios executam testes Terraform de plano com providers simulados e estados fictícios antes do apply/destroy. Eles verificam a cadeia de confiança com tags, o escopo das seis roles, a leitura restrita dos segredos e os nomes DNS do bootstrap, sem criar recursos AWS.
 
+No destroy, kubernetes-configs sai antes de database, que fornece os ARNs e a CA. Para recuperar uma execução que já apagou database, o runner passa `-var=destroy_mode=true` somente no plano `-destroy` de configurações; esse caminho deixa de consultar o state database. O apply força false e continua exigindo os outputs reais. Publicar Infra antes do principal e iniciar novo destroy para retomar, mantendo os states. Testes com providers simulados cobrem a leitura normal e a ausência dessa dependência na recuperação.
+
 ### Primeiro plano de messaging
 
 `Plan: ... to add` pode ser um plano parcial seguido de erro; conferir também as mensagens anteriores ao resumo. A execução de 07/11/2026 falhou no plano de `kubernetes_manifest.kafka["statefulset.yaml"]`, com `unmarshaling unknown values is not supported`: interpolar random_id em templatefile e depois chamar yamldecode tornava o manifesto inteiro desconhecido antes do primeiro apply. A mensagem genérica de GroupVersionKind/CRD não indicava ausência de CRD para o StatefulSet nativo.
