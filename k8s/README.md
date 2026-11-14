@@ -23,6 +23,27 @@ O MongoDB usa a exceção localhost somente para iniciar rs0 e criar o primeiro 
 
 Executar `node scripts/platform/test-mongodb.mjs` a partir do Infra com Docker e o repositório DB irmão disponível. O ensaio cria recursos exclusivos e valida TLS obrigatório/hostname, autenticação, grants isolados/idempotentes, commit/rollback e persistência após reinício. `EXECUTION_TEST_IMAGE` permite executar também o gate CLI real da imagem da API. O ensaio remove containers, volumes e rede temporários.
 
-Não aplicar diretamente os templates de observabilidade: Terraform injeta checksum/endpoint. Não introduzir dupla gestão de recursos Terraform e aplicação. A árvore backend foi retirada.
+Não aplicar diretamente os templates de observabilidade: Terraform injeta checksum/endpoint. Não introduzir dupla gestão de recursos Terraform e aplicação.
 
-A entrada operacional é manage-platform.yml do principal. Consultar o [guia central](https://github.com/Maieru/fiap-tech-challenge/blob/main/docs/operacao/plataforma-aws.md) para implantação, destruição diária e transição do legado.
+A entrada operacional é manage-platform.yml do principal. Consultar o [guia central](https://github.com/Maieru/fiap-tech-challenge/blob/main/docs/operacao/plataforma-aws.md) para implantação, destruição diária e pré-requisitos de ativação.
+
+## Verificação e gestão
+
+Na raiz do Infra, o ensaio MongoDB exige Node.js 22+, Docker Linux e o checkout DB ao lado. Para incluir o gate da API, construa antes a imagem Execution e defina EXECUTION_TEST_IMAGE:
+
+```powershell
+$env:EXECUTION_TEST_IMAGE = 'fiap-execution:local'
+node scripts/platform/test-mongodb.mjs
+```
+
+O gate é opcional quando a variável não está definida. O script cria recursos descartáveis próprios e não deve usar bancos ou volumes de desenvolvimento. Ele não substitui o gate executado no EKS.
+
+Para inspecionar um cluster já configurado, confirme o contexto e consulte:
+
+```powershell
+kubectl -n fiap-mongodb get pods,services,pvc
+kubectl -n fiap-messaging get pods,services,pvc,jobs
+kubectl -n fiap-observability get pods,externalsecrets
+```
+
+Arquivos em k8s são consumidos pelo Terraform; não aplique a árvore inteira com kubectl. Placeholders/templates e recursos controlados pelo Terraform precisam ter uma única gestão. As aplicações são entregues por seus próprios catálogos e workflows reutilizáveis, após a inicialização dos bancos.

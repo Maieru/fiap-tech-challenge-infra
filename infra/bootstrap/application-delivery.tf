@@ -25,7 +25,7 @@ locals {
   ]...)
 }
 
-# Roles próprias: incluir serviços no mapa legado também criaria roles de Infra.
+# Roles próprias mantêm a entrega de aplicações separada das permissões de Infra.
 resource "aws_iam_role" "application_delivery" {
   for_each = local.application_delivery_roles
   name     = "fiap-github-${each.value.service}-${each.value.operation}"
